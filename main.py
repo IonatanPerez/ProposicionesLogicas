@@ -3,8 +3,9 @@ class Expresion:
     def __init__(self,input,reemplazar=False):
         self.operadores = [Parentesis()]
         if reemplazar:
-            for operador in self.operadores:
-                texto = operador.reemplazarCaracteres(texto)        
+            if type(input) == str:
+                for operador in self.operadores:
+                    input = operador.reemplazarCaracteres(input)        
         if type(input) == str:
             self.texto = input
             self.elementos = [self.texto]
@@ -76,12 +77,13 @@ class Operador:
 
 
 class Parentesis(Operador):
-
+    # TODO Hay que repensar el algortimo porque no detecta bien los parentesis si hay barios
     equivalencias = [["(","[","{"],[")","]","}"]]
     prioridad = 0
     name = "Parentesis"
 
     def aplicarOperador (self,expresion):
+        
         elementosNuevo = []
         for elemento in expresion.elementos:
             if type(elemento) == str:
@@ -117,6 +119,6 @@ class SiSoloSi(Operador):
 
 def tests():
     texto = "H(o[l))ay (chau)"
-    expresion = Expresion(texto)
+    expresion = Expresion(texto,reemplazar=True)
 
 tests()
