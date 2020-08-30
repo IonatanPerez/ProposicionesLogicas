@@ -5,9 +5,15 @@ class Expresion:
         self.proposiciones = []
         self.elementos = [texto]
         self.mensajesError = []
+        self.operadores = [Parentesis()]
 
     def validar(self):
-        pass
+        for operador in self.operadores:
+            self.texto = operador.reemplazarCaracteres(self.texto)        
+            operador.aplicarOperador(self)
+        if self.mensajesError:
+            for error in self.mensajesError:
+                error.reportar()
 
     def Atexto(self):
         pass
@@ -32,6 +38,7 @@ class MensajeError:
 class Operador:
 
     name = "por definir"
+    equivalencias = []
 
     def reemplazarCaracteres(self,texto):
         for subtipo in self.equivalencias:
@@ -58,34 +65,26 @@ class Parentesis(Operador):
                         error = MensajeError(expresion,Parentesis,"Se encontro un parentesis de cierre sin su correspondiente parentesis de apertura.")
                         expresion.mensajesError.append(error)
                 else:
-                    print (elemento)
-                    print (apertura)
                     cierre = elemento[::-1].find(self.equivalencias[1][0])
+                    posicioncierre = len(elemento) - cierre
                     if cierre == -1:
                         error = MensajeError(expresion,Parentesis,"Se encontro un parentesis de apertura sin su correspondiente parentesis de cierre.")
                         expresion.mensajesError.append(error)
                     else:
-                        print (cierre)
-                        elementosNuevo = elementosNuevo + [elemento[:apertura]] + [Expresion(elemento[apertura:len(elemento) - cierre])] + [elemento[cierre:]]
+                        elementosNuevo = elementosNuevo + [elemento[:apertura]] + [Expresion(elemento[apertura:posicioncierre])] + [elemento[posicioncierre:]]
             else:
                 elementosNuevo = elementosNuevo + [elemento]
         expresion.elementos = elementosNuevo
 
 def tests():
-    texto = "Hol)a"
+    texto = "H(ol)a"
     expresion = Expresion(texto)
     print (expresion.texto)
     print (expresion.elementos)
     print (expresion.mensajesError)
-    parentesis = Parentesis()
-    parentesis.aplicarOperador(expresion)
-    parentesis.aplicarOperador(expresion)
+    expresion.validar()
     print (expresion.texto)
     print (expresion.elementos)
     print (expresion.mensajesError)
-    print (expresion.mensajesError[0].reportar())
-
-
-    #print (expresion.elementos[1].texto)
 
 tests()
