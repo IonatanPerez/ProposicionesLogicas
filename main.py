@@ -1,23 +1,51 @@
 class Expresion:
-    
-    def __init__(self,texto):
-        self.texto = texto
-        self.proposiciones = []
-        self.elementos = [texto]
-        self.mensajesError = []
+            
+    def __init__(self,input,reemplazar=False):
         self.operadores = [Parentesis()]
+        if reemplazar:
+            for operador in self.operadores:
+                texto = operador.reemplazarCaracteres(texto)        
+        if type(input) == str:
+            self.texto = input
+            self.elementos = [self.texto]
+            self.proposiciones = {}
+            self.mensajesError = []
+        else:
+            self.texto = self.expresiontotext(input)
+            self.elementos = input
+            self.recuperarProposiciones (input)
+            self.recuperarErrores (input)
+        self.validado = False
+        self.validar()
 
     def validar(self):
         for operador in self.operadores:
             self.texto = operador.reemplazarCaracteres(self.texto)        
             operador.aplicarOperador(self)
-        if self.mensajesError:
+        if len(self.mensajesError):
             for error in self.mensajesError:
-                error.reportar()
+                print (error.reportar())
+        else:
+            self.validado = True
 
-    def Atexto(self):
-        pass
+    def totext(self):
+        return self.texto
 
+    def expresiontotext(self,input):
+        texto = ""
+        for elemento in input:
+            texto = texto + elemento.totext()
+        return texto
+
+    def recuperarErrores (self,input):
+        for elemento in input:
+            if type(elemento) == Expresion:
+                self.proposiciones.update(elemento.proposiciones)
+
+    def recuperarProposiciones (self,input):
+        for elemento in input:
+            if type(elemento) == Expresion:
+                self.mensajesError = self.mensajesError + elemento.mensajeError
 
 class Proposicion:
 
@@ -71,20 +99,24 @@ class Parentesis(Operador):
                         error = MensajeError(expresion,Parentesis,"Se encontro un parentesis de apertura sin su correspondiente parentesis de cierre.")
                         expresion.mensajesError.append(error)
                     else:
-                        elementosNuevo = elementosNuevo + [elemento[:apertura]] + [Expresion(elemento[apertura:posicioncierre])] + [elemento[posicioncierre:]]
+                        elementosNuevo = elementosNuevo + [elemento[:apertura]] + [Expresion(elemento[apertura+1:posicioncierre-1])] + [elemento[posicioncierre:]]
             else:
                 elementosNuevo = elementosNuevo + [elemento]
         expresion.elementos = elementosNuevo
 
+class SiSoloSi(Operador):
+
+    equivalencias = [["<=>","<->"]]
+    prioridad = 1
+    name = "SiSoloSi"
+
+    def aplicarOperador(self,expresion):
+        elementosNuevo = []
+
+
+
 def tests():
-    texto = "H(ol)a"
+    texto = "H(o[l))ay (chau)"
     expresion = Expresion(texto)
-    print (expresion.texto)
-    print (expresion.elementos)
-    print (expresion.mensajesError)
-    expresion.validar()
-    print (expresion.texto)
-    print (expresion.elementos)
-    print (expresion.mensajesError)
 
 tests()
