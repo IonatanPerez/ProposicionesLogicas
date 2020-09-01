@@ -7,7 +7,7 @@ class Expresion:
     def __init__(self,input,padre=False,reemplazar=False):
         if input:
             self.padre = padre
-            self.operadores = [Parentesis()]
+            self.operadores = [Parentesis(),Proposicion()]
             if reemplazar:
                 if type(input) == str:
                     for operador in self.operadores:
@@ -116,7 +116,7 @@ class Parentesis(Operador):
             return
         
         if len(aperturas) == 0:
-            expresion.elementos = expresion.texto
+            expresion.elementos.append(Proposicion(expresion.texto))
         else:
             pares = []
             while len(aperturas) > 0:
@@ -150,7 +150,7 @@ class Parentesis(Operador):
                                 error = MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis consecutivo a otro o consecutivo a una expresion proposicional sin operador de por medio.")
                                 expresion.mensajesError.append(error)
                                 return    
-                    expresion.elementos.append(Expresion(expresion.texto[par[0]+1:par[1]],expresion))
+                    expresion.elementos.append(Expresion(contenido,expresion))
                 else:
                     error = MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura y cierre sin contenido.")
                     expresion.mensajesError.append(error)
@@ -170,19 +170,25 @@ class SiSoloSi(Operador):
         elementosNuevo = []
 
 
-class Proposicion:
+class Proposicion(Operador):
 
-    # TODO transformar en un operador que verifique que no haya dos proposiciones seguidas, ni una proposicion consecutiva a una exoresion
     name = "Proposicion"
 
-    def __init__(self,texto):
+    def __init__(self,texto=None):
         self.texto = texto
 
     def aplicarOperador(self,expresion):
         for idx, elemento in enumerate(expresion.elementos):
             if type(elemento) == str:
                 if idx>1:
-                    pass
+                    if expresion.elementos[idx-1].name == "Expresion":
+                        error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion a continuacion de una expresion proposicional sin operador de por medio valido.")
+                        expresion.mensajesError.append(error)
+                        return
+                    if expresion.elementos[idx-1].name == "Proposicion":
+                        error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion a continuacion de una proposicion sin operador de por medio valido.")
+                        expresion.mensajesError.append(error)
+                        return
                 expresion.elementos[idx] = Proposicion(elemento)
 
 
