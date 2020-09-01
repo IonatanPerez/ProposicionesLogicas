@@ -5,7 +5,7 @@ class Expresion:
     def __init__(self,input,padre=False,reemplazar=False):
         if input:
             self.padre = padre
-            self.operadores = [Parentesis(),Proposicion()]
+            self.operadores = [Parentesis(),SiSoloSi(),Proposicion()]
             if reemplazar:
                 if type(input) == str:
                     for operador in self.operadores:
@@ -50,12 +50,14 @@ class Expresion:
                 texto = texto + elemento.totext()
         return texto
 
-    def recuperarErrores (self,input):
+    def recuperarProposiciones (self,input):
+        self.proposiciones = {}
         for elemento in input:
             if type(elemento) == Expresion:
-                self.proposiciones.update(elemento.proposiciones)
+                self.proposiciones.update(elemento.proposiciones) # TODO revisar el tema de los sets para unificar proposiciones
 
-    def recuperarProposiciones (self,input):
+    def recuperarErrores (self,input):
+        self.mensajesError = []
         for elemento in input:
             if type(elemento) == Expresion:
                 self.mensajesError = self.mensajesError + elemento.mensajeError
@@ -87,26 +89,29 @@ class Parentesis(Operador):
     prioridad = 0
     name = "Parentesis"
 
+    simboloApertura = equivalencias[0][0]
+    simboloCierre = equivalencias[1][0]
+
     def aplicarOperador (self,expresion):
 
         aperturas = []
         apertura = -1
-        while expresion.texto[apertura+1:].find(self.equivalencias[0][0]) != -1:
+        while expresion.texto[apertura+1:].find(self.simboloApertura) != -1:
             if aperturas:
                 offset = aperturas[-1]+1
             else:
                 offset = 0
-            apertura = expresion.texto[apertura+1:].find(self.equivalencias[0][0]) + offset
+            apertura = expresion.texto[apertura+1:].find(self.simboloApertura) + offset
             aperturas = aperturas + [apertura]
 
         cierres = []
         cierre = -1
-        while expresion.texto[cierre+1:].find(self.equivalencias[1][0]) != -1:
+        while expresion.texto[cierre+1:].find(self.simboloCierre) != -1:
             if cierres:
                 offset = cierres[-1]+1
             else:
                 offset = 0
-            cierre = expresion.texto[cierre+1:].find(self.equivalencias[1][0]) + offset
+            cierre = expresion.texto[cierre+1:].find(self.simboloCierre) + offset
             cierres = cierres + [cierre]
 
         if len(aperturas) != len(cierres):
@@ -115,7 +120,7 @@ class Parentesis(Operador):
             return
         
         if len(aperturas) == 0:
-            expresion.elementos.append(expresion.texto)
+            expresion.elementos.append(expresion.texto) # TODO Aca es la segunda vez que lo cambio, va esto para transformar el texto en elemento. 
         else:
             pares = []
             while len(aperturas) > 0:
@@ -161,7 +166,9 @@ class Parentesis(Operador):
 
 class Proposicion(Operador):
 
+    equivalencias = []
     name = "Proposicion"
+    prioridad = -1
 
     def __init__(self,texto=None):
         self.texto = texto
@@ -189,44 +196,46 @@ class Proposicion(Operador):
 class EOE(Operador):
 
     name = "Operador generico que opera entre dos expresiones"
-    conmuta = None
+    asociativo = None
     prioridad = None
-
+    
     def aplicarOperador(self,expresion):
+        idelementoDeOcurrencia = None
         for idx, elemento in enumerate(expresion.elementos):
             ocurrencias = 0
-            for elemento in expresion.elementos:
-                if type(elemento) == str:
-                    if elemento.count(self.equivalencias[0]):
-                        ocurrencias = ocurrencias + elemento.count(self.equivalencias[0])
-                        elementoDeOcurrencia = idx
+            if type(elemento) == str:
+                if elemento.count(self.simbolo):
+                    ocurrencias = ocurrencias + elemento.count(self.simbolo)
+                    idelementoDeOcurrencia = idx
         if ocurrencias > 0:
             # Buscamos ver que no este mal escrita la expresion porque hay otro operador de igual prioridad incompatible sintacticamente. 
+            # TODO Pensar si tiene sentido chequear que no hayan quedado operadores de mas prioridad.
             for elemento in expresion.elementos:
                 if type(elemento) == str:
                     for operador in expresion.operadores:
                         if operador.prioridad == self.prioridad:
-                            if elemento.find(operador.equivalencias[0]):
-                                error = MensajeError(expresion,self,"Se encontro una ocurrencia del operador " + self.name + "(" + self.equivalencias[0] + ")" + " en la expresion al mismo nivel que una del tipo " + 
-                                        + operador.name + "(" + operador.equivalencias[0] + ")" + ". Es ambiguo cual resolver primero.")
-                                expresion.mensajesError.append(error)
-                                return      
-            if not self.conmuta:
+                            if not operador.name == self.name: 
+                                if elemento.find(operador.simbolo):
+                                    error = MensajeError(expresion,self,"Se encontro una ocurrencia del operador " + self.name + "(" + self.simbolo + ")" + " en la expresion al mismo nivel que una del tipo " + 
+                                                operador.name + "(" + operador.simbolo + ")" + ". Es ambiguo cual resolver primero.")
+                                    expresion.mensajesError.append(error)
+                                    return      
+            if not self.asociativo:
                 if ocurrencias > 1:
-                    error = MensajeError(expresion,self,"Se encontro mas de una ocurrencia del operador " + self.name + "(" + self.equivalencias[0] + ")" + " en la expresion, lo cual es ambiguo respecto a cual resolver primero.")
+                    error = MensajeError(expresion,self,"Se encontro mas de una ocurrencia del operador " + self.name + "(" + self.simbolo + ")" + " en la expresion, lo cual es ambiguo respecto a cual resolver primero.")
                     expresion.mensajesError.append(error)
                     return       
-            caracterOcurrencia = expresion.elementos[elementoDeOcurrencia].find(self.equivalencias[0])
-            pre = expresion.elementos[elementoDeOcurrencia][:caracterOcurrencia]
-            post = expresion.elementos[elementoDeOcurrencia][caracterOcurrencia:]
+            caracterOcurrencia = expresion.elementos[idelementoDeOcurrencia].find(self.simbolo)
+            pre = expresion.elementos[idelementoDeOcurrencia][:caracterOcurrencia]
+            post = expresion.elementos[idelementoDeOcurrencia][caracterOcurrencia+len(self.simbolo):]
             if pre:
-                expresionIzquierda = expresion.elementos[:elementoDeOcurrencia] + [pre]
+                expresionIzquierda = expresion.elementos[:idelementoDeOcurrencia] + [pre]
             else:
-                expresionIzquierda = expresion.elementos[:elementoDeOcurrencia]
+                expresionIzquierda = expresion.elementos[:idelementoDeOcurrencia]
             if post:
-                expresionDerecha = [post] + expresion.elementos[elementoDeOcurrencia]
+                expresionDerecha = [post] + expresion.elementos[idelementoDeOcurrencia+1:]
             else:
-                expresionDerecha = expresion.elementos[elementoDeOcurrencia:]
+                expresionDerecha = expresion.elementos[idelementoDeOcurrencia+1:]
             if not expresionIzquierda:
                 error = MensajeError(expresion,self,"No se encontró una expresion valida delante del operador.")
                 expresion.mensajesError.append(error)
@@ -236,20 +245,26 @@ class EOE(Operador):
                 expresion.mensajesError.append(error)
                 return
             # Si llegamos aca toda la sintaxis deberia estar bien
+            expresion.elementos = []
             expresion.elementos.append(Expresion(expresionIzquierda,expresion))
-            expresion.elementos.append(Expresion(self,expresion))
+            expresion.elementos.append(self)
             expresion.elementos.append(Expresion(expresionDerecha,expresion))
 
 
+class SiSoloSi (EOE):
 
-
+    name = "SiSoloSi"
+    equivalencias = [["<=>","<->"]]
+    asociativo = False
+    simbolo = equivalencias[0][0]
+    prioridad = 1
 
 
 def tests():
-    texto = "H(ol)"
+    texto = "p<->q"
     expresion = Expresion(texto,reemplazar=True)
     print (expresion.elementos)
-    print (expresion.elementos[1].elementos)
+    print (expresion.elementos[0].elementos)
     #print (expresion.elementos[5].elementos)
 
 tests()
