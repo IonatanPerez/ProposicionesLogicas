@@ -1,25 +1,33 @@
 # TODO Revisar que no haya dos expresiones consecutivas
 
 class Expresion:
-            
-    def __init__(self,input,reemplazar=False):
-        self.operadores = [Parentesis()]
-        if reemplazar:
+
+    name = "Expresion"
+
+    def __init__(self,input,padre=False,reemplazar=False):
+        if input:
+            self.padre = padre
+            self.operadores = [Parentesis()]
+            if reemplazar:
+                if type(input) == str:
+                    for operador in self.operadores:
+                        input = operador.reemplazarCaracteres(input)        
             if type(input) == str:
-                for operador in self.operadores:
-                    input = operador.reemplazarCaracteres(input)        
-        if type(input) == str:
-            self.texto = input
-            self.elementos = []
-            self.proposiciones = {}
-            self.mensajesError = []
+                self.texto = input
+                self.elementos = []
+                self.proposiciones = {}
+                self.mensajesError = []
+            else:
+                self.texto = self.expresiontotext(input)
+                self.elementos = []
+                self.recuperarProposiciones (input)
+                self.recuperarErrores (input)
+            self.validado = False
+            self.validar()
         else:
-            self.texto = self.expresiontotext(input)
-            self.elementos = []
-            self.recuperarProposiciones (input)
-            self.recuperarErrores (input)
-        self.validado = False
-        self.validar()
+            if padre:
+                error = MensajeError(padre,self,"Se esta intentando crear una expresion proposicional sin contenido")
+                padre.mensajesError.append(error)
 
     def validar(self):
         for operador in self.operadores:
@@ -66,7 +74,7 @@ class MensajeError:
 class Operador:
 
     #name = "por definir"
-    #equivalencias = []
+    equivalencias = []
 
     def reemplazarCaracteres(self,texto):
         for subtipo in self.equivalencias:
@@ -85,8 +93,8 @@ class Parentesis(Operador):
         aperturas = []
         apertura = -1
         while expresion.texto[apertura+1:].find(self.equivalencias[0][0]) != -1:
-            if sum(aperturas):
-                offset = sum(aperturas,1)
+            if aperturas:
+                offset = aperturas[-1]+1
             else:
                 offset = 0
             apertura = expresion.texto[apertura+1:].find(self.equivalencias[0][0]) + offset
@@ -95,8 +103,8 @@ class Parentesis(Operador):
         cierres = []
         cierre = -1
         while expresion.texto[cierre+1:].find(self.equivalencias[1][0]) != -1:
-            if sum(cierres):
-                offset = sum(cierres,1)
+            if cierres:
+                offset = cierres[-1]+1
             else:
                 offset = 0
             cierre = expresion.texto[cierre+1:].find(self.equivalencias[1][0]) + offset
@@ -131,36 +139,21 @@ class Parentesis(Operador):
                     return
             remanente = expresion.texto
             for par in pares:
-                expresion.elementos.append(expresion.texto[len(expresion.texto)-len(remanente):par[0]])
-                expresion.elementos.append(Expresion (expresion.texto[par[0]+1:par[1]]))
-                remanente = expresion.texto[par[1]+1:]
-            expresion.elementos.append(remanente)
-
-        
-        """
-        elementosNuevo = []
-        for elemento in expresion.elementos:
-            if type(elemento) == str:
-                apertura = elemento.find(self.equivalencias[0][0])
-                if apertura == -1:
-                    if elemento.find(self.equivalencias[1][0]) == -1: 
-                        elementosNuevo = elementosNuevo + [elemento]
-                    else:
-                        error = MensajeError(expresion,Parentesis,"Se encontro un parentesis de cierre sin su correspondiente parentesis de apertura.")
-                        expresion.mensajesError.append(error)
+                pre = expresion.texto[len(expresion.texto)-len(remanente):par[0]]
+                if pre:
+                    expresion.elementos.append(expresion.texto[len(expresion.texto)-len(remanente):par[0]])
+                contenido = expresion.texto[par[0]+1:par[1]]
+                if contenido:
+                    expresion.elementos.append(Expresion(expresion.texto[par[0]+1:par[1]],expresion))
                 else:
-                    cierre = elemento[::-1].find(self.equivalencias[1][0])
-                    posicioncierre = len(elemento) - cierre
-                    if cierre == -1:
-                        error = MensajeError(expresion,Parentesis,"Se encontro un parentesis de apertura sin su correspondiente parentesis de cierre.")
-                        expresion.mensajesError.append(error)
-                    else:
-                        elementosNuevo = elementosNuevo + [elemento[:apertura]] + [Expresion(elemento[apertura+1:posicioncierre-1])] + [elemento[posicioncierre:]]
-            else:
-                elementosNuevo = elementosNuevo + [elemento]
-        expresion.elementos = elementosNuevo
-        """
-        
+                    error = MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura y cierre sin contenido.")
+                    expresion.mensajesError.append(error)
+                    return
+                remanente = expresion.texto[par[1]+1:]
+            if remanente:
+                expresion.elementos.append(remanente)
+
+
 class SiSoloSi(Operador):
 
     equivalencias = [["<=>","<->"]]
@@ -170,16 +163,30 @@ class SiSoloSi(Operador):
     def aplicarOperador(self,expresion):
         elementosNuevo = []
 
+
 class Proposicion:
 
-    # TODO transformar en un operador que verifique que no haya dos proposiciones seguidas.
+    # TODO transformar en un operador que verifique que no haya dos proposiciones seguidas, ni una proposicion consecutiva a una exoresion
+    name = "Proposicion"
+
     def __init__(self,texto):
         self.texto = texto
 
+    def aplicarOperador(self,expresion):
+        for idx, elemento in enumerate(expresion.elementos):
+            if type(elemento) == str:
+                if idx>1:
+                    pass
+                expresion.elementos[idx] = Proposicion(elemento)
+
+
+
+
 def tests():
-    texto = "H(ol)(hay)a"
+    texto = "H(ol)(hay)()a"
     expresion = Expresion(texto,reemplazar=True)
     print (expresion.elementos)
     print (expresion.elementos[1].elementos)
     print (expresion.elementos[3].elementos)
+
 tests()
