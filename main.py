@@ -144,6 +144,12 @@ class Parentesis(Operador):
                     expresion.elementos.append(expresion.texto[len(expresion.texto)-len(remanente):par[0]])
                 contenido = expresion.texto[par[0]+1:par[1]]
                 if contenido:
+                    if expresion.elementos:
+                        if not type(expresion.elementos[-1]) == str:
+                            if expresion.elementos[-1].name == Expresion.name:
+                                error = MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis consecutivo a otro o consecutivo a una expresion proposicional sin operador de por medio.")
+                                expresion.mensajesError.append(error)
+                                return    
                     expresion.elementos.append(Expresion(expresion.texto[par[0]+1:par[1]],expresion))
                 else:
                     error = MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura y cierre sin contenido.")
@@ -183,10 +189,10 @@ class Proposicion:
 
 
 def tests():
-    texto = "H(ol)(hay)()a"
+    texto = "H(ol)y(hay)o((q)a)a"
     expresion = Expresion(texto,reemplazar=True)
     print (expresion.elementos)
     print (expresion.elementos[1].elementos)
-    print (expresion.elementos[3].elementos)
+    print (expresion.elementos[5].elementos)
 
 tests()
