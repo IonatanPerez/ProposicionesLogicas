@@ -1,5 +1,3 @@
-# TODO Revisar que no haya dos expresiones consecutivas
-
 class Expresion:
 
     name = "Expresion"
@@ -43,6 +41,7 @@ class Expresion:
         return " (" + self.texto + ") "
 
     def expresiontotext(self,input):
+        # TODO pensar si tiene sentido validar que solo haya elementos str, expresiones o proposiciones
         texto = ""
         for elemento in input:
             if type(elemento) == str:
@@ -73,8 +72,8 @@ class MensajeError:
 
 class Operador:
 
-    #name = "por definir"
-    equivalencias = []
+    name = None
+    equivalencias = None
 
     def reemplazarCaracteres(self,texto):
         for subtipo in self.equivalencias:
@@ -116,7 +115,7 @@ class Parentesis(Operador):
             return
         
         if len(aperturas) == 0:
-            expresion.elementos.append(Proposicion(expresion.texto))
+            expresion.elementos.append(expresion.texto)
         else:
             pares = []
             while len(aperturas) > 0:
@@ -160,16 +159,6 @@ class Parentesis(Operador):
                 expresion.elementos.append(remanente)
 
 
-class SiSoloSi(Operador):
-
-    equivalencias = [["<=>","<->"]]
-    prioridad = 1
-    name = "SiSoloSi"
-
-    def aplicarOperador(self,expresion):
-        elementosNuevo = []
-
-
 class Proposicion(Operador):
 
     name = "Proposicion"
@@ -189,16 +178,78 @@ class Proposicion(Operador):
                         error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion a continuacion de una proposicion sin operador de por medio valido.")
                         expresion.mensajesError.append(error)
                         return
+                if idx + 1 < len(expresion.elementos):
+                    if expresion.elementos[idx+1].name == "Expresion":
+                        error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion justo antes de una expresion proposicional sin operador de por medio valido.")
+                        expresion.mensajesError.append(error)
+                        return
                 expresion.elementos[idx] = Proposicion(elemento)
+
+
+class EOE(Operador):
+
+    name = "Operador generico que opera entre dos expresiones"
+    conmuta = None
+    prioridad = None
+
+    def aplicarOperador(self,expresion):
+        for idx, elemento in enumerate(expresion.elementos):
+            ocurrencias = 0
+            for elemento in expresion.elementos:
+                if type(elemento) == str:
+                    if elemento.count(self.equivalencias[0]):
+                        ocurrencias = ocurrencias + elemento.count(self.equivalencias[0])
+                        elementoDeOcurrencia = idx
+        if ocurrencias > 0:
+            # Buscamos ver que no este mal escrita la expresion porque hay otro operador de igual prioridad incompatible sintacticamente. 
+            for elemento in expresion.elementos:
+                if type(elemento) == str:
+                    for operador in expresion.operadores:
+                        if operador.prioridad == self.prioridad:
+                            if elemento.find(operador.equivalencias[0]):
+                                error = MensajeError(expresion,self,"Se encontro una ocurrencia del operador " + self.name + "(" + self.equivalencias[0] + ")" + " en la expresion al mismo nivel que una del tipo " + 
+                                        + operador.name + "(" + operador.equivalencias[0] + ")" + ". Es ambiguo cual resolver primero.")
+                                expresion.mensajesError.append(error)
+                                return      
+            if not self.conmuta:
+                if ocurrencias > 1:
+                    error = MensajeError(expresion,self,"Se encontro mas de una ocurrencia del operador " + self.name + "(" + self.equivalencias[0] + ")" + " en la expresion, lo cual es ambiguo respecto a cual resolver primero.")
+                    expresion.mensajesError.append(error)
+                    return       
+            caracterOcurrencia = expresion.elementos[elementoDeOcurrencia].find(self.equivalencias[0])
+            pre = expresion.elementos[elementoDeOcurrencia][:caracterOcurrencia]
+            post = expresion.elementos[elementoDeOcurrencia][caracterOcurrencia:]
+            if pre:
+                expresionIzquierda = expresion.elementos[:elementoDeOcurrencia] + [pre]
+            else:
+                expresionIzquierda = expresion.elementos[:elementoDeOcurrencia]
+            if post:
+                expresionDerecha = [post] + expresion.elementos[elementoDeOcurrencia]
+            else:
+                expresionDerecha = expresion.elementos[elementoDeOcurrencia:]
+            if not expresionIzquierda:
+                error = MensajeError(expresion,self,"No se encontró una expresion valida delante del operador.")
+                expresion.mensajesError.append(error)
+                return
+            if not expresionDerecha:
+                error = MensajeError(expresion,self,"No se encontró una expresion valida detras del operador.")
+                expresion.mensajesError.append(error)
+                return
+            # Si llegamos aca toda la sintaxis deberia estar bien
+            expresion.elementos.append(Expresion(expresionIzquierda,expresion))
+            expresion.elementos.append(Expresion(self,expresion))
+            expresion.elementos.append(Expresion(expresionDerecha,expresion))
+
+
 
 
 
 
 def tests():
-    texto = "H(ol)y(hay)o((q)a)a"
+    texto = "H(ol)"
     expresion = Expresion(texto,reemplazar=True)
     print (expresion.elementos)
     print (expresion.elementos[1].elementos)
-    print (expresion.elementos[5].elementos)
+    #print (expresion.elementos[5].elementos)
 
 tests()
