@@ -38,6 +38,16 @@ class Expresion:
             self.validado = True
 
     def totext(self):
+        if len(self.elementos) == 1:
+            assert self.elementos[0].name == self.operadores[-1].name
+            return self.elementos[0].totext()
+        else:
+            texto = "("
+            for elemento in elementos:
+                texto = texto + elemento.totext()
+            texto = texto + ")"
+            return texto
+
         return " (" + self.texto + ") "
 
     def expresiontotext(self,input):
@@ -201,8 +211,8 @@ class EOE(Operador):
     
     def aplicarOperador(self,expresion):
         idelementoDeOcurrencia = None
+        ocurrencias = 0
         for idx, elemento in enumerate(expresion.elementos):
-            ocurrencias = 0
             if type(elemento) == str:
                 if elemento.count(self.simbolo):
                     ocurrencias = ocurrencias + elemento.count(self.simbolo)
@@ -261,7 +271,7 @@ class SiSoloSi (EOE):
 
 
 def tests():
-    texto = "p<->q"
+    texto = "p<->(q)"
     expresion = Expresion(texto,reemplazar=True)
     print (expresion.elementos)
     print (expresion.elementos[0].elementos)
