@@ -39,11 +39,11 @@ class Expresion:
 
     def totext(self):
         if len(self.elementos) == 1:
-            assert self.elementos[0].name == self.operadores[-1].name
+            assert self.elementos[0].name == self.operadores[-1].name #TODO completar el error del assert
             return self.elementos[0].totext()
         else:
             texto = "("
-            for elemento in elementos:
+            for elemento in self.elementos:
                 texto = texto + elemento.totext()
             texto = texto + ")"
             return texto
@@ -85,7 +85,7 @@ class MensajeError:
 class Operador:
 
     name = None
-    equivalencias = None
+    equivalencias = []
 
     def reemplazarCaracteres(self,texto):
         for subtipo in self.equivalencias:
@@ -159,7 +159,7 @@ class Parentesis(Operador):
                 contenido = expresion.texto[par[0]+1:par[1]]
                 if contenido:
                     if expresion.elementos:
-                        if not type(expresion.elementos[-1]) == str:
+                        if not type(expresion.elementos[-1]) == str: #TODO Revisar si esta bien este chequeo, sobre todo el mensaje de error. Porque no tiene sentido que haya una proposicion creo. El parentesis es lo primero que se chequea a partir del texto
                             if expresion.elementos[-1].name == Expresion.name:
                                 error = MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis consecutivo a otro o consecutivo a una expresion proposicional sin operador de por medio.")
                                 expresion.mensajesError.append(error)
@@ -200,14 +200,16 @@ class Proposicion(Operador):
                         error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion justo antes de una expresion proposicional sin operador de por medio valido.")
                         expresion.mensajesError.append(error)
                         return
-                expresion.elementos[idx] = Proposicion(elemento)
+                expresion.elementos[idx] = Proposicion(elemento) #TODO pensar si puede suceder que se llegue aca con mas de un elemento y que este bien. 
 
-
+    # TODO definir aca el totext()
+    
 class EOE(Operador):
 
     name = "Operador generico que opera entre dos expresiones"
     asociativo = None
     prioridad = None
+    simbolo = None
     
     def aplicarOperador(self,expresion):
         idelementoDeOcurrencia = None
@@ -218,7 +220,7 @@ class EOE(Operador):
                     ocurrencias = ocurrencias + elemento.count(self.simbolo)
                     idelementoDeOcurrencia = idx
         if ocurrencias > 0:
-            # Buscamos ver que no este mal escrita la expresion porque hay otro operador de igual prioridad incompatible sintacticamente. 
+            # Buscamos ver que no este mal escrita la expresion porque hay otro operador de igual prioridad incompatible sintacticamente. Por construccion no deberia existir expresiones que tengan mas de tres elementos.
             # TODO Pensar si tiene sentido chequear que no hayan quedado operadores de mas prioridad.
             for elemento in expresion.elementos:
                 if type(elemento) == str:
@@ -230,8 +232,8 @@ class EOE(Operador):
                                                 operador.name + "(" + operador.simbolo + ")" + ". Es ambiguo cual resolver primero.")
                                     expresion.mensajesError.append(error)
                                     return      
-            if not self.asociativo:
-                if ocurrencias > 1:
+            if not self.asociativo: #TODO mandar esto arriba para evitar un monton de lineas en caso de que no se cumpla.
+                if ocurrencias > :
                     error = MensajeError(expresion,self,"Se encontro mas de una ocurrencia del operador " + self.name + "(" + self.simbolo + ")" + " en la expresion, lo cual es ambiguo respecto a cual resolver primero.")
                     expresion.mensajesError.append(error)
                     return       
@@ -254,9 +256,9 @@ class EOE(Operador):
                 error = MensajeError(expresion,self,"No se encontró una expresion valida detras del operador.")
                 expresion.mensajesError.append(error)
                 return
-            # Si llegamos aca toda la sintaxis deberia estar bien
+            # Si llegamos aca toda la sintaxis deberia estar bien y deberiamos tener la expresion segmentada en tres, la expresion que viene antes del operador, el operador y lo que viene despues. 
             expresion.elementos = []
-            expresion.elementos.append(Expresion(expresionIzquierda,expresion))
+            expresion.elementos.append(Expresion(expresionIzquierda,expresion)) #TODO que si la expresion izq o der ya es una expresion se saltee el proceso de crearla que es redundante
             expresion.elementos.append(self)
             expresion.elementos.append(Expresion(expresionDerecha,expresion))
 
