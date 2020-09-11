@@ -1,11 +1,14 @@
 class Expresion:
 
     name = "Expresion"
+    proposiciones = {}
+    mensajesError = []
+    # TODO revisar bien cuando se usa el constructor que pasa porque creo que se crean expresiones que son proposiciones sin inicializar bien las variables. 
 
     def __init__(self,input,padre=False,reemplazar=False):
         if input:
             self.padre = padre
-            self.operadores = [Parentesis(),SiSoloSi(),Proposicion()]
+            self.operadores = [Parentesis(),SiSoloSi(),Implica(),Proposicion()]
             if reemplazar:
                 if type(input) == str:
                     for operador in self.operadores:
@@ -13,24 +16,36 @@ class Expresion:
             if type(input) == str:
                 self.texto = input
                 self.elementos = []
-                self.proposiciones = {}
-                self.mensajesError = []
             else:
                 self.texto = self.expresiontotext(input)
                 self.elementos = []
-                self.recuperarProposiciones (input)
-                self.recuperarErrores (input)
+                # self.recuperarProposiciones (input) Creo que habria que ejecutarlo despues de validar. Todavia no empece a implementar esta parte 
+                # self.recuperarErrores (input) Creo que no hace falta
             self.validado = False
+            self.continuarValidacion = True
             self.validar()
         else:
             if padre:
                 error = MensajeError(padre,self,"Se esta intentando crear una expresion proposicional sin contenido")
                 padre.mensajesError.append(error)
 
+    def create(self,input,padre=False,reemplazar=False):
+        if len(input) == 1:
+            if not type(input[0]) == str:
+                if input[0].name == Expresion.name:
+                    return input[0]
+        return Expresion(input,padre,reemplazar)
+
     def validar(self):
         for operador in self.operadores:
-            # self.texto = operador.reemplazarCaracteres(self.texto)         # No me queda claro porque en algun momento hice esto aca
-            operador.aplicarOperador(self)
+            if self.continuarValidacion:
+                if operador.name == Parentesis.name:
+                    operador.aplicarOperador(self)
+                elif operador.name == Proposicion.name:
+                    operador.aplicarOperador(self)
+                else:
+                    if not self.texto.find(operador.simbolo) == -1:
+                        operador.aplicarOperador(self)
         if len(self.mensajesError):
             for error in self.mensajesError:
                 print (error.reportar())
@@ -39,7 +54,7 @@ class Expresion:
 
     def totext(self):
         if len(self.elementos) == 1:
-            assert self.elementos[0].name == self.operadores[-1].name #TODO completar el error del assert
+            assert self.elementos[0].name == Proposicion.name, "hay un solo elemento en la expresión y no es una proposicion" 
             return self.elementos[0].totext()
         else:
             texto = "("
@@ -51,7 +66,7 @@ class Expresion:
         return " (" + self.texto + ") "
 
     def expresiontotext(self,input):
-        # TODO pensar si tiene sentido validar que solo haya elementos str, expresiones o proposiciones
+        # TODO pensar si tiene sentido validar que solo haya elementos str, expresiones o proposiciones. No, no tiene sentido porque esto procesa el input, no el contenido. 
         texto = ""
         for elemento in input:
             if type(elemento) == str:
@@ -60,7 +75,7 @@ class Expresion:
                 texto = texto + elemento.totext()
         return texto
 
-    def recuperarProposiciones (self,input):
+"""     def recuperarProposiciones (self,input):
         self.proposiciones = {}
         for elemento in input:
             if type(elemento) == Expresion:
@@ -71,7 +86,7 @@ class Expresion:
         for elemento in input:
             if type(elemento) == Expresion:
                 self.mensajesError = self.mensajesError + elemento.mensajeError
-
+ """
 class MensajeError:
 
     def __init__(self,contexto,operacion,mensaje):
@@ -86,7 +101,7 @@ class Operador:
 
     name = None
     equivalencias = []
-
+    
     def reemplazarCaracteres(self,texto):
         for subtipo in self.equivalencias:
             for char in subtipo[1:]:
@@ -129,8 +144,8 @@ class Parentesis(Operador):
             expresion.mensajesError.append(error)
             return
         
-        if len(aperturas) == 0:
-            expresion.elementos.append(expresion.texto) # TODO Aca es la segunda vez que lo cambio, va esto para transformar el texto en elemento. 
+        if len(aperturas) == 0: # No se encontraron parentesis
+            expresion.elementos.append(expresion.texto) 
         else:
             pares = []
             while len(aperturas) > 0:
@@ -172,7 +187,9 @@ class Parentesis(Operador):
                 remanente = expresion.texto[par[1]+1:]
             if remanente:
                 expresion.elementos.append(remanente)
-
+            if len(expresion.elementos) == 1: # Si solo hay un elemento deberia ser una expresion y no hay mas que validar
+                self.continuarValidacion = False
+            
 
 class Proposicion(Operador):
 
@@ -200,9 +217,10 @@ class Proposicion(Operador):
                         error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion justo antes de una expresion proposicional sin operador de por medio valido.")
                         expresion.mensajesError.append(error)
                         return
-                expresion.elementos[idx] = Proposicion(elemento) #TODO pensar si puede suceder que se llegue aca con mas de un elemento y que este bien. 
+                expresion.elementos[idx] = Proposicion(elemento) #pensar si puede suceder que se llegue aca con mas de un elemento y que este bien. Rta: Si, porque por la expresion puede no tener sentido por ej: p(q)p
 
-    # TODO definir aca el totext()
+    def totext(self):
+        return self.texto
     
 class EOE(Operador):
 
@@ -211,7 +229,7 @@ class EOE(Operador):
     prioridad = None
     simbolo = None
     
-    def aplicarOperador(self,expresion):
+    def aplicarOperador(self,expresion): #TODO buscar si aparece el operador en el texto para descartar rapido cuando no esta
         idelementoDeOcurrencia = None
         ocurrencias = 0
         for idx, elemento in enumerate(expresion.elementos):
@@ -220,6 +238,11 @@ class EOE(Operador):
                     ocurrencias = ocurrencias + elemento.count(self.simbolo)
                     idelementoDeOcurrencia = idx
         if ocurrencias > 0:
+            if not self.asociativo: 
+                if ocurrencias > 1:
+                    error = MensajeError(expresion,self,"Se encontro mas de una ocurrencia del operador " + self.name + "(" + self.simbolo + ")" + " en la expresion, lo cual es ambiguo respecto a cual resolver primero.")
+                    expresion.mensajesError.append(error)
+                    return       
             # Buscamos ver que no este mal escrita la expresion porque hay otro operador de igual prioridad incompatible sintacticamente. Por construccion no deberia existir expresiones que tengan mas de tres elementos.
             # TODO Pensar si tiene sentido chequear que no hayan quedado operadores de mas prioridad.
             for elemento in expresion.elementos:
@@ -231,12 +254,7 @@ class EOE(Operador):
                                     error = MensajeError(expresion,self,"Se encontro una ocurrencia del operador " + self.name + "(" + self.simbolo + ")" + " en la expresion al mismo nivel que una del tipo " + 
                                                 operador.name + "(" + operador.simbolo + ")" + ". Es ambiguo cual resolver primero.")
                                     expresion.mensajesError.append(error)
-                                    return      
-            if not self.asociativo: #TODO mandar esto arriba para evitar un monton de lineas en caso de que no se cumpla.
-                if ocurrencias > :
-                    error = MensajeError(expresion,self,"Se encontro mas de una ocurrencia del operador " + self.name + "(" + self.simbolo + ")" + " en la expresion, lo cual es ambiguo respecto a cual resolver primero.")
-                    expresion.mensajesError.append(error)
-                    return       
+                                return
             caracterOcurrencia = expresion.elementos[idelementoDeOcurrencia].find(self.simbolo)
             pre = expresion.elementos[idelementoDeOcurrencia][:caracterOcurrencia]
             post = expresion.elementos[idelementoDeOcurrencia][caracterOcurrencia+len(self.simbolo):]
@@ -258,10 +276,12 @@ class EOE(Operador):
                 return
             # Si llegamos aca toda la sintaxis deberia estar bien y deberiamos tener la expresion segmentada en tres, la expresion que viene antes del operador, el operador y lo que viene despues. 
             expresion.elementos = []
-            expresion.elementos.append(Expresion(expresionIzquierda,expresion)) #TODO que si la expresion izq o der ya es una expresion se saltee el proceso de crearla que es redundante
+            expresion.elementos.append(expresion.create(expresionIzquierda,expresion))
             expresion.elementos.append(self)
-            expresion.elementos.append(Expresion(expresionDerecha,expresion))
+            expresion.elementos.append(expresion.create(expresionDerecha,expresion))
 
+    def totext(self):
+        return self.simbolo
 
 class SiSoloSi (EOE):
 
@@ -271,12 +291,21 @@ class SiSoloSi (EOE):
     simbolo = equivalencias[0][0]
     prioridad = 1
 
+class Implica (EOE):
+
+    name = "Implica"
+    equivalencias = [["=>","->"]]
+    asociativo = False
+    simbolo = equivalencias[0][0]
+    prioridad = 2
+
 
 def tests():
-    texto = "p<->(q)"
+    texto = "((q))"
     expresion = Expresion(texto,reemplazar=True)
     print (expresion.elementos)
-    print (expresion.elementos[0].elementos)
+    print (expresion.elementos[2].elementos)
+    print (expresion.totext())
     #print (expresion.elementos[5].elementos)
 
 tests()
