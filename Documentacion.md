@@ -62,3 +62,26 @@ Para analizar las expresiones logicas se utilizan las siguientes definiciones y 
     - Simbolo default: "!"
     - Reglas sintacticas: Debe iniciar una expresion y estar seguido por una expresion o proposicion
     - Tabla de verdad: [FV]
+
+## Logica de programación
+
+Para resolver el problema se sigue la siguiente logica:
+
+### Segmentación (en proceso de implementacion)
+
+- Se define las expresiones como un objeto que poseen (ademas de variables y metodos auxiliares) las siguientes caracteristicas:
+  - Propiedad texto: es el texto de la expresion que debe ser validado
+  - Propiedad elementos: son las componentes de la expresion que al crearse se iran validando. 
+  - Metodo validar: Se ejecuta al crear la expresion. Toma al texto y lo segmenta y procesa segun corresponda a los operadores mencionados arriba en el orden correcto. Al aplicar cada operador se valida la sintaxis y si no se cumple se genera el error explicativo correspondiente. Si un operador es aplicado con exito es porque la sintaxis evaluada en ese nivel de anidacion es correcta. Luego de aplicar todos los operadores no deberia quedar texto a transformar en elemento ni posibles errores de sintaxis sin validar. Como la logica del codigo es toda orientada a objetos si hay un error sintactico en una expresion anidada eso es un problema que se valua cuando un operador crea la expresion anidada a partir del segmento de texto que corresponda. Como se genera una cadena de validaciones anidadas si el proceso no genera errores quiere decir que en ningun lugar de la expresion hay errores sintacticos. Si la validacion se interrumpe porque se encuentra un error este error se reporta al usuario indicando razon y contexto del error. 
+- Se definen la clase Operador como clases que tienen un metodo de reemplazar caracteres (para poder unificar los caracteres diferentes con una logica unica)
+- Se define el operado parentesis como clase hija de Operador. Es el primer operador que se debe aplicar y toma el texto de la expresion para hacer la primer segmentacion. Luego de aplicado la expresion tiene en sus elementos textos y (si corresponde porque se encontraron parentesis) tambien expresiones. Si el operador detecta que no hay mas texto a analizar lo indica para evitar revisiones posteriores de otros operadores de prioridad mas baja. Lo mismo hacen todos los operadores. 
+- Se define los operadores del tipo EOE como hijos de Operador, porque su logica de validacion es muy similar al margen del tipo de operador especifico que sea cuyas diferencias se definen mediante clases heredadas. Este operador aplica buscando en lo que quede de texto (es decir lo que no este entre parentesis que ya fue procesado por el operador anterior) el simbolo que corresponda a su clase hija especifica. Cuando lo encuentra verifica que este simbolo sea unico salvo que conmute (en cuyo caso verifica que no haya un simbolo de otro operador diferente con el mismo orden de prioridad). A continuacion segmenta toda la expresion en tres, lo que esta a la izquierda (que sera una expresion nueva), el operador y lo que esta a la izquierda (que sera otra expresion nueva). Si encuentra que alguna de las condiciones no se cumple eleva un error, sino marca como finalizada la validacion de la expresion. 
+- Se define el operador negación como clase hija de Operador. Es el unico que opera solo con una expresion a la derecha. Busca en lo que sea texto el simbolo correspondiente, debe ser el primer caracter y lo que sigue debe ser todo texto o bien una expresion ya creada (por un parentesis). 
+
+### Busqueda de proposiciones (pendiente)
+
+Una vez segmentada y validada la expresion la idea es recorrela para buscar en los diferentes niveles de anidacion todos los objetos de tipo Proposicion y unificarlos conviertiendo en una misma instancia de la clase las proposiciones cuyos texto coincidan. Ademas se debe generar la combinacion de valores de verdad de dichas proposiciones para poder evaluar luego las expresiones. Hay que agregar el metodo (posiblemente a nivel EOE y negacion) que calcule la tabla de verdad de la expresion. Hay que ver si conviene crear a priori todas las combinaciones posibles de valor de verdad de las proposiciones o conviene crear un metodo de evaluacion para que despues seteando los valores automaticamente se updatee los valore de cada expresion.
+
+### Representacion grafica (pendiente)
+
+En principio la solucion facil es crear tablas pandas y trabajarlo con una visualizacion tipica de dataframes donde cada fila es una combinacion de valor de verdad de las proposiciones y cada columna cada una de las expresiones anidadas (habria que ordenarlas en orden de menor a mayor complejidad). Despue se puede pensar en hacer una interfaz grafica mas copada. 
