@@ -4,7 +4,7 @@ class Expresion:
     proposiciones = {}
     mensajesError = []
     # TODO revisar bien cuando se usa el constructor que pasa porque creo que se crean expresiones que son proposiciones sin inicializar bien las variables. 
-
+    
     def __init__(self,input,padre=False,reemplazar=False):
         if input:
             self.padre = padre
@@ -187,9 +187,11 @@ class Parentesis(Operador):
                 remanente = expresion.texto[par[1]+1:]
             if remanente:
                 expresion.elementos.append(remanente)
-            if len(expresion.elementos) == 1: # Si solo hay un elemento deberia ser una expresion y no hay mas que validar
-                self.continuarValidacion = False
             
+            if len(expresion.elementos) == 1: # Si solo hay un elemento deberia ser una expresion y no hay mas que validar
+                expresion.continuarValidacion = False
+            else:
+                #TODO pasar el to texto a cuando se arma, tipo constructor no en el init. Hacer que solo se reciba texto
 
 class Proposicion(Operador):
 
@@ -201,23 +203,17 @@ class Proposicion(Operador):
         self.texto = texto
 
     def aplicarOperador(self,expresion):
-        for idx, elemento in enumerate(expresion.elementos):
-            if type(elemento) == str:
-                if idx>1:
-                    if expresion.elementos[idx-1].name == "Expresion":
-                        error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion a continuacion de una expresion proposicional sin operador de por medio valido.")
-                        expresion.mensajesError.append(error)
-                        return
-                    if expresion.elementos[idx-1].name == "Proposicion":
-                        error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion a continuacion de una proposicion sin operador de por medio valido.")
-                        expresion.mensajesError.append(error)
-                        return
-                if idx + 1 < len(expresion.elementos):
-                    if expresion.elementos[idx+1].name == "Expresion":
-                        error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion justo antes de una expresion proposicional sin operador de por medio valido.")
-                        expresion.mensajesError.append(error)
-                        return
-                expresion.elementos[idx] = Proposicion(elemento) #pensar si puede suceder que se llegue aca con mas de un elemento y que este bien. Rta: Si, porque por la expresion puede no tener sentido por ej: p(q)p
+        if len(expresion.elementos) > 1:
+            for elemento in expresion.elementos:
+                assert type(elemento) == Expresion or type(elemento) == str, "revisar porque hay un error de codigo y se genero una expresion donde se llego a evaluar las proposiciones y se heredo algo que por construccion no deberia"
+            error = MensajeError(expresion,Proposicion,"En la expresion se encontro una proposicion contigua a otra proposicion o expresion proposicional sin operador valido de por medio.")
+            expresion.mensajesError.append(error)
+            return
+        assert len(expresion.elementos) == 1, "A este punto deberia solo llegar un string en elementos"
+        assert type(expresion.elementos[0]) == str, "A este punto deberia solo llegar un string en elementos"
+        ## TODO hacer en parentesis que si no queda texto y hay mas de un elemento tire error
+        expresion.elementos = [Proposicion(expresion.elementos[0])]
+        expresion.continuarValidacion = False
 
     def totext(self):
         return self.texto
