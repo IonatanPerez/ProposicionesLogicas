@@ -192,7 +192,8 @@ class Parentesis(Operador):
                 expresion.continuarValidacion = False
             else:
                 #TODO pasar el to texto a cuando se arma, tipo constructor no en el init. Hacer que solo se reciba texto
-
+                pass
+            
 class Proposicion(Operador):
 
     equivalencias = []
