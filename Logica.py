@@ -1,7 +1,3 @@
-def strcopy(text):
-    textonuevo = (text+".")[:-1]
-    return textonuevo
-
 class Operador:
     "Clase correspondiente a un operador generico donde se definen las funciones comunes a todos."
     name = None
@@ -94,6 +90,10 @@ class Parentesis(Operador):
         if pares == -1:
             return # Se vuelve sin aplicar nada porque hubo un error en la sintaxis de los parentesis.
         else:
+            for par in pares:
+                if par[1] == par[0]+1:
+                    MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura y cierre sin contenido.")
+                    return
             if len(pares) == 1:
                 if ((pares[0][0] == 0) and (pares[0][1] == len(expresion.texto)-1)):
                     expresion.texto = expresion.texto[1:-1]
@@ -105,15 +105,13 @@ class Parentesis(Operador):
                 if pre:
                     expresion.elementos.append(expresion.texto[len(expresion.texto)-len(remanente):par[0]])
                 contenido = expresion.texto[par[0]+1:par[1]]
-                if contenido:
-                    expresion.elementosTemporales.append(Expresion(contenido,expresion))
-                else:
-                    MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura y cierre sin contenido.")
-                    return
+                expresion.elementosTemporales.append(Expresion(contenido,expresion))
                 remanente = expresion.texto[par[1]+1:]
             if remanente:
                 expresion.elementosTemporales.append(remanente)
-
+            expresion.updateTextoRemanente()
+            if expresion.textoRemanente == "":
+                MensajeError(expresion,Parentesis,"En la expresion se encontro mas de un parentesis sin ningun tipo de operador que los conecte.")
 
 class Expresion:
 
@@ -153,18 +151,19 @@ class Expresion:
         return texto
 
     @classmethod
-    def expresionInicial (cls,textoInicial):
+    def expresionInicial (cls,texto):
         "Es el punto de entreda al codigo, toma el texto del usuario e inicia el proceso."
-        textoCopiado = strcopy(textoInicial)
-        print (id(textoCopiado),id(textoInicial))
+        textoOriginal = texto
         texto = cls.reemplazarCaracteres(texto)
-        if not texto == textoOriginal:
-            print ("Se ha reemplazado el texto: " + textoOriginal + " por el texto " + texto)
+        if not textoOriginal == texto:
+            print ("Se ha reemplazado el texto: " + textoOriginal + " por el texto " + texto + " para usar los caracteres estandarizados")
         expresion = Expresion(texto,False)
         if expresion.validado:
-            print ("La expresion: " + expresion.texto + " ha pasado el proceso de procesamiento y validacion sintactica")
+            #print ("La expresion: " + textoOriginal + " ha pasado el proceso de procesamiento y validacion sintactica")
+            pass
         else:
-            print ("La expresion: " + expresion.texto + " no ha pasado el proceso de procesamiento y validacion sintactica")
+            pass
+            #print ("La expresion: " + textoOriginal + " no ha pasado el proceso de procesamiento y validacion sintactica")
         return expresion
 
     def totext(self):
@@ -195,7 +194,7 @@ class MensajeError:
 
     def reportar(self):
         "Genera el texto que explica el error."
-        return "En el la expresion " + self.contexto.texto + " se encontro un error al procesar un operador de tipo " + self.operador.name + " que reporto el siguiente mensaje: " + self.mensaje
+        print ("En el la expresion " + self.contexto.texto + " se encontro un error al procesar un operador de tipo " + self.operador.name + " que reporto el siguiente mensaje: " + self.mensaje)
 
 
 def test(testeos):
@@ -205,13 +204,20 @@ def test(testeos):
 
 def deberiapasar(valorEsperado,expresion,texto):
     if valorEsperado == expresion.validado:
-        print ("El codigo funciono como se esperaba para el ejemplo: " + texto)
+        pass
+        #print ("El codigo funciono como se esperaba para el ejemplo: " + texto)
     else:
         print ("El codigo NO funciono como se esperaba para el ejemplo: " + texto)
 
 testeos = [
     ["p",True],
-    ["(p)",True]
+    ["(p)",True],
+    ["()",False],
+    ["(Hola",False],
+    ["Hola)",False],
+    ["Hola)(Chau",False],
+    ["(Hola)p",True], #Por ahora
+    ["(Hola)(Chau)",False]
 ]
 
 test(testeos)
