@@ -121,10 +121,10 @@ class Parentesis(Operador):
     @classmethod
     def saltear(cls,texto):
         if not texto.find(cls.simboloApertura) == -1:
-            return True
+            return False
         if not texto.find(cls.simboloCierre) == -1:
-            return True
-        return False
+            return False
+        return True
 
     @classmethod
     def contarOcurrencias(cls,texto):
