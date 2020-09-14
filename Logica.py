@@ -9,8 +9,8 @@ class Operador:
         "Busca los caracteres equivalentes y los reemplaza por el predeterminado."
         for subtipo in cls.equivalencias:
             for char in subtipo[1:]:
-                texto.replace(char,subtipo[0])
-
+                texto = texto.replace(char,subtipo[0])
+        return texto
 
 class Parentesis(Operador):
 
@@ -105,7 +105,7 @@ class Parentesis(Operador):
                 if pre:
                     expresion.elementos.append(expresion.texto[len(expresion.texto)-len(remanente):par[0]])
                 contenido = expresion.texto[par[0]+1:par[1]]
-                expresion.elementosTemporales.append(Expresion(contenido,expresion))
+                expresion.elementosTemporales.append(Expresion(contenido,expresion)) 
                 remanente = expresion.texto[par[1]+1:]
             if remanente:
                 expresion.elementosTemporales.append(remanente)
@@ -128,13 +128,21 @@ class Expresion:
         self.subexpresiones = None
         self.validado = False
         self.continuarvalidacion = True
+        self.errorEnSubexpresion = False
         self.elementosTemporales = []
         self.procesar()
-        if self.mensajesError:
-            for mensaje in self.mensajesError:
-                mensaje.reportar()
+        if self.errorEnSubexpresion:
+            if padre:
+                padre.errorEnSubexpresion = True
+                padre.continuarvalidacion = False
         else:
-            self.validado = True
+            if self.mensajesError:
+                for mensaje in self.mensajesError:
+                    mensaje.reportar()
+                if padre:
+                    self.padre.errorEnSubexpresion = True
+            else:    
+                self.validado = True
         
     @classmethod
     def crearsubexpresion (cls,elementosTemporales,padre):
@@ -147,7 +155,7 @@ class Expresion:
     def reemplazarCaracteres (cls,texto):
         "Reemplaza los caracteres de un texto asumiento que el texto fue ingresado por el usuario y hay diferentes equivalencias para los mismos simbolos"
         for operador in cls.operadores:
-            operador.reemplazarCaracteres(texto)
+            texto = operador.reemplazarCaracteres(texto)
         return texto
 
     @classmethod
@@ -212,12 +220,15 @@ def deberiapasar(valorEsperado,expresion,texto):
 testeos = [
     ["p",True],
     ["(p)",True],
+    ["[p]",True],
+    ["{p}",True],
     ["()",False],
     ["(Hola",False],
     ["Hola)",False],
     ["Hola)(Chau",False],
     ["(Hola)p",True], #Por ahora
-    ["(Hola)(Chau)",False]
+    ["(Hola)(Chau)",False],
+    ["((Hola)())g",False]
 ]
 
 test(testeos)
