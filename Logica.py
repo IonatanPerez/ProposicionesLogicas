@@ -24,30 +24,31 @@ class Parentesis(Operador):
     @classmethod
     def buscarPares(cls,expresion):
         "Busca las posiciones de los pares de parentesis o un -1 si hay error sintactico."
+        assert len(expresion.elementosTemporales) == 1
+        assert type(expresion.elementosTemporales[0]) == str
+        texto = expresion.elementosTemporales[0]
+        assert texto
         aperturas = []
         apertura = -1
-        while expresion.texto[apertura+1:].find(cls.simboloApertura) != -1:
+        while texto[apertura+1:].find(cls.simboloApertura) != -1:
             if aperturas:
                 offset = aperturas[-1]+1
             else:
                 offset = 0
-            apertura = expresion.texto[apertura+1:].find(cls.simboloApertura) + offset
+            apertura = texto[apertura+1:].find(cls.simboloApertura) + offset
             aperturas = aperturas + [apertura]
-
         cierres = []
         cierre = -1
-        while expresion.texto[cierre+1:].find(cls.simboloCierre) != -1:
+        while texto[cierre+1:].find(cls.simboloCierre) != -1:
             if cierres:
                 offset = cierres[-1]+1
             else:
                 offset = 0
-            cierre = expresion.texto[cierre+1:].find(cls.simboloCierre) + offset
+            cierre = texto[cierre+1:].find(cls.simboloCierre) + offset
             cierres = cierres + [cierre]
-
         if len(aperturas) != len(cierres):
             MensajeError(expresion,Parentesis,"En la expresion se encontro una cantidad diferente de parentesis de apertura que de cierre.")
             return -1
-        
         pares = []
         if aperturas:
             while len(aperturas) > 0:
@@ -67,6 +68,10 @@ class Parentesis(Operador):
                 else:
                     MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura antes que uno de cierre.")
                     return -1
+        for par in pares:
+            if par[1] == par[0]+1:
+                MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura y cierre sin contenido.")
+                return -1
         return pares
 
     @classmethod
@@ -74,7 +79,7 @@ class Parentesis(Operador):
         """
         Aplica el operador parentesis a una expresion, asume que es el primer operador aplicado.
 
-        La funcion toma el texto de la expresion y lo segmenta en funcion de los parentesis mas externos que encuentre colocando
+        La funcion asumen que en elementosTemporales solo hay un texto y lo segmenta en funcion de los parentesis mas externos que encuentre colocando
         en la propiedad elementos de la expresion los segmentos de texto que queden fuera de los parentesis y expresiones nuevas para
         los parentesis que correspondan. 
 
@@ -87,36 +92,30 @@ class Parentesis(Operador):
         - Que no haya mas de un parentesis sin que quede texto fuera
         
         """        
-        if not cls.saltear(expresion.texto):
-            pares = cls.buscarPares(expresion)
-            if pares == -1:
-                return # Se vuelve sin aplicar nada porque hubo un error en la sintaxis de los parentesis.
-            else:
-                for par in pares:
-                    if par[1] == par[0]+1:
-                        MensajeError(expresion,Parentesis,"En la expresion se encontro un parentesis de apertura y cierre sin contenido.")
-                        return
-                if len(pares) == 1:
-                    if ((pares[0][0] == 0) and (pares[0][1] == len(expresion.texto)-1)):
-                        expresion.texto = expresion.texto[1:-1]
-                        expresion.elementosTemporales = [expresion.texto]
-                        return 
-                remanente = expresion.texto
-                for par in pares:
-                    pre = expresion.texto[len(expresion.texto)-len(remanente):par[0]]
-                    if pre:
-                        expresion.elementos.append(expresion.texto[len(expresion.texto)-len(remanente):par[0]])
-                    contenido = expresion.texto[par[0]+1:par[1]]
-                    expresion.elementosTemporales.append(Expresion(contenido,expresion)) 
-                    remanente = expresion.texto[par[1]+1:]
-                if remanente:
-                    expresion.elementosTemporales.append(remanente)
-                expresion.updateTextoRemanente()
-                if expresion.textoRemanente == "":
-                    MensajeError(expresion,Parentesis,"En la expresion se encontro mas de un parentesis sin ningun tipo de operador que los conecte.")
+        pares = cls.buscarPares(expresion)
+        texto = expresion.elementosTemporales[0]
+        expresion.elementosTemporales = []
+        if pares == -1:
+            return # Se vuelve sin aplicar nada porque hubo un error en la sintaxis de los parentesis.
         else:
-            expresion.elementosTemporales = expresion.texto
-        return
+            if len(pares) == 1:
+                if ((pares[0][0] == 0) and (pares[0][1] == len(texto)-1)):
+                    expresion.texto = expresion.texto[1:-1]
+                    expresion.elementosTemporales = [texto]
+                    return 
+            remanente = texto
+            for par in pares:
+                pre = texto[len(texto)-len(remanente):par[0]]
+                if pre:
+                    expresion.elementos.append(texto[len(expresion.texto)-len(remanente):par[0]])
+                contenido = texto[par[0]+1:par[1]]
+                expresion.elementosTemporales.append(Expresion(contenido,expresion)) 
+                remanente = texto[par[1]+1:]
+            if remanente:
+                expresion.elementosTemporales.append(remanente)
+            expresion.updateTextoRemanente()
+            if expresion.textoRemanente == "":
+                MensajeError(expresion,Parentesis,"En la expresion se encontro mas de un parentesis sin ningun tipo de operador que los conecte.")
 
     @classmethod
     def saltear(cls,texto):
@@ -208,7 +207,7 @@ class SiSoloSi (EOE):
 class Expresion:
 
     name = "Expresion"
-    operadores = [Parentesis , SiSoloSi]#, Implica, Proposicion]
+    operadores = [Parentesis]# , SiSoloSi]#, Implica, Proposicion]
 
     def __init__ (self,texto,padre):
         assert texto
@@ -222,7 +221,7 @@ class Expresion:
         self.validado = False
         self.continuarvalidacion = True
         self.errorEnSubexpresion = False
-        self.elementosTemporales = []
+        self.elementosTemporales = [self.texto]
         self.procesar()
         if self.errorEnSubexpresion:
             if padre:
@@ -341,4 +340,4 @@ testeos = [
     ["p<=>q",True]
 ]
 
-test(testeos,11)
+test(testeos)
