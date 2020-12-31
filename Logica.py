@@ -107,7 +107,7 @@ class Parentesis(Operador):
             for par in pares:
                 pre = texto[len(texto)-len(remanente):par[0]]
                 if pre:
-                    expresion.elementos.append(texto[len(expresion.texto)-len(remanente):par[0]])
+                    expresion.elementosTemporales.append(texto[len(expresion.texto)-len(remanente):par[0]])
                 contenido = texto[par[0]+1:par[1]]
                 expresion.elementosTemporales.append(Expresion(contenido,expresion)) 
                 remanente = texto[par[1]+1:]
@@ -127,7 +127,7 @@ class Parentesis(Operador):
 
     @classmethod
     def contarOcurrencias(cls,texto):
-        return True
+        return not cls.saltear(texto)
 
 class EOE(Operador):
     """
@@ -191,6 +191,7 @@ class EOE(Operador):
         expresion.elementosTemporales = []
         expresion.subexpresiones = [Expresion.crearsubexpresion(expresionIzquierda,expresion),Expresion.crearsubexpresion(expresionDerecha,expresion)]
         expresion.operacion = cls
+        expresion.continuarvalidacion = False
 
     @classmethod
     def totext(cls,expresion):
@@ -204,10 +205,101 @@ class SiSoloSi (EOE):
     simbolo = equivalencias[0][0]
     prioridad = 1
 
+class Implica (EOE):
+
+    name = "Implica"
+    equivalencias = [["=>","->"]]
+    asociativo = False
+    simbolo = equivalencias[0][0]
+    prioridad = 2
+
+class Y (EOE):
+
+    name = "Y"
+    equivalencias = [["Y","y","^","&","AND","and"]]
+    asociativo = True
+    simbolo = equivalencias[0][0]
+    prioridad = 3
+
+class O (EOE):
+
+    name = "O"
+    equivalencias = [["O","o","V","v","+","or","OR"]]
+    asociativo = True
+    simbolo = equivalencias[0][0]
+    prioridad = 3
+
+class OExcluyente (EOE):
+
+    name = "OExcluyente"
+    equivalencias = [["Ó","ó","xor","XOR"]]
+    asociativo = True
+    simbolo = equivalencias[0][0]
+    prioridad = 3
+
+class Negacion(Operador):
+    """
+    Operador del tipo OE, como es el unico lo definimos aca
+
+    """
+    name="Negacion"
+    equivalencias = [["!", "~", "¬", "not", "NOT"]]
+    asociativo = False
+    prioridad = 4  
+    simbolo = equivalencias[0][0]
+
+    @classmethod
+    def contarOcurrencias(cls,texto):
+        "Cuenta cuantas ocurrencias del simbolo que corresponde al operador hay en un texto."
+        numeroDeOcurrencias = 0
+        while not texto.find(cls.simbolo) == -1:
+            texto = texto.replace(cls.simbolo,"",1)
+            numeroDeOcurrencias += 1
+        return numeroDeOcurrencias
+
+    @classmethod
+    def aplicarOperador(cls,expresion):
+        if cls.contarOcurrencias(expresion.textoRemanente) > 1:
+            MensajeError(expresion,cls,"En la expresion se encontro mas de un operador del tipo " + cls.simbolo + " y solo tiene sentido que haya uno al inicio de cada expresión o subexpresión logica.")
+            return
+        numeroDeElementoConSimbolo = -1
+        for idx, elemento in enumerate(expresion.elementosTemporales):
+            if type(elemento) == str:
+                if elemento.count(cls.simbolo):
+                    numeroDeElementoConSimbolo = idx
+                    break
+        if numeroDeElementoConSimbolo > 0:
+            MensajeError(expresion,cls,"En la expresion se encontro un operador del tipo " + cls.simbolo + " a continuacion de una proposicion o subexpresión logica y lo cual es un error de sintaxis.")
+            return
+        indiceDeOcurrencia = expresion.elementosTemporales[numeroDeElementoConSimbolo].find(cls.simbolo)
+        if indiceDeOcurrencia > 0:
+            MensajeError(expresion,cls,"En la expresion se encontro un operador del tipo " + cls.simbolo + " a continuacion de una proposicion o subexpresión logica y lo cual es un error de sintaxis.")
+            return
+        post = expresion.elementosTemporales[numeroDeElementoConSimbolo][indiceDeOcurrencia+len(cls.simbolo):]
+        if not post:
+            MensajeError(expresion,cls,"En la expresion se encontro un operador del tipo " + cls.simbolo + " sin nada a continuación.")
+            return
+        expresion.elementosTemporales = []
+        expresion.subexpresiones = [Expresion.crearsubexpresion([post],expresion)]
+        expresion.operacion = cls
+        expresion.continuarvalidacion = False
+
+
+class Proposicion:
+    name = "Proposicion"
+
+    @classmethod
+    def reemplazarCaracteres(cls,texto):
+        return texto
+
+    @classmethod
+    def contarOcurrencias(cls, texto):
+        return True
+
 class Expresion:
 
     name = "Expresion"
-    operadores = [Parentesis]# , SiSoloSi]#, Implica, Proposicion]
+    operadores = [Parentesis, SiSoloSi, Implica, Y, O, OExcluyente, Proposicion]
 
     def __init__ (self,texto,padre):
         assert texto
@@ -280,7 +372,16 @@ class Expresion:
         return expresion
 
     def totext(self):
-        raise NotImplementedError # No me queda claro para que la querria. 
+        texto = ""
+        if self.operacion:
+            if type(self.operacion) == Proposicion.name:
+                pass
+            else:
+                return self.operacion.builtext(self.subexpresiones)
+        else:
+            texto += Parentesis.simboloApertura + self.texto + Parentesis.simboloCierre
+            print ("warning: esto hay que modificarlo cuando este hecho todos los operadores incluyendo la proposicion porque ahi depende el numero y tipo de operadores se construye diferente. Por ej si es una proposicion no tiene sentido poner parentesis.")
+        return texto
         
     def procesar(self):
         for operador in self.operadores:
@@ -309,8 +410,27 @@ class MensajeError:
         print ("En la expresion " + self.contexto.texto + " se encontro un error al procesar un operador de tipo " + self.operador.name + " que reporto el siguiente mensaje: " + self.mensaje)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def test(testeos,indice=0):
     if indice:
+        if indice == -1:
+            indice = len(testeos) - 1
         expresion = Expresion.expresionInicial(testeos[indice][0])
         deberiapasar (testeos[indice][1],expresion,testeos[indice][0])
         return
@@ -337,7 +457,13 @@ testeos = [
     ["(Hola)p",True], #Por ahora
     ["(Hola)(Chau)",False],
     ["((Hola)())g",False],
-    ["p<=>q",True]
+    ["p<=>q",True],
+    ["p<-><->q",False],
+    ["p<=>(q)",True],
+    ["p<=>(q)(p)",False],
+    ["p<=>(((q)))",True],
+    ["pop",True],
+    ["p",True]
 ]
 
-test(testeos)
+test(testeos,-1)

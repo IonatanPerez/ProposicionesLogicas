@@ -1,64 +1,22 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QStatusBar, QVBoxLayout, QWidget, QLineEdit, QPushButton
+import gettext
+
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
 
+_ = gettext.gettext
+
+def print_some_strings():
+    print(_("Hello world"))
+    print(_("aanother thing"))
 
 
-class HyperlinkLabel(QLabel):
-
-    def __init__(self, parent=None):
-
-        super().__init__()
 
 
-        self.setOpenExternalLinks(True)
 
-        self.setParent(parent)
+es = gettext.translation('base', localedir='locales', languages=['es'])
+es.install()
+_ = es.gettext
 
+if __name__=='__main__':
+    print_some_strings()
 
-class MainWindow(QMainWindow):
-
-    def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
-
-        self.setWindowTitle("Logical Propositions")
-        layout = QVBoxLayout()
-        
-        input_proposicion = QLineEdit()
-        input_proposicion.setMaxLength(100)
-        input_proposicion.setPlaceholderText("Enter the proposition")
-        layout.addWidget(input_proposicion)
-        
-
-        button_check = QPushButton()    
-        button_check.setText("Check syntax") 
-        layout.addWidget(button_check)
-
-
-        layout.addStretch(0)
-        
-        label_author = QLabel("Author: Ionatan Perez")
-        label_author.setAlignment(Qt.AlignRight)
-        layout.addWidget(label_author)
-
-        linkTemplate = '<a href={0}>{1}</a>'
-        label_source = QLabel()
-        label_source.setOpenExternalLinks(True)
-        #label_source = HyperlinkLabel(self)
-        label_source.setText(linkTemplate.format('https://github.com/IonatanPerez/ProposicionesLogicas', 'Source code'))
-        label_source.setAlignment(Qt.AlignRight)
-        layout.addWidget(label_source)
-        
-        widget_main = QWidget()
-        widget_main.setLayout(layout)
-
-        self.setCentralWidget(widget_main)
-        self.setStatusBar(QStatusBar(self))
-        
-
-app = QApplication(sys.argv)
-
-window = MainWindow()
-window.show()
-
-app.exec_()
