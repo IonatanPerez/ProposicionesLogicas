@@ -7,16 +7,28 @@ class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
-        self.setWindowTitle("Logical Propositions")
+        self.setWindowTitle("Proposiciones logicas")
+
+        
+        widget_main = QWidget()
+        widget_main.setLayout(self.populateMainLayoult())
+
+        self.setCentralWidget(widget_main)
+        self.setStatusBar(QStatusBar(self))
+        
+    def populateMainLayoult(self):
+
         layout = QVBoxLayout()
         
+        #layout.addItem(self.populateBotonesSuperiores)
         input_proposicion = QLineEdit()
         input_proposicion.setMaxLength(100)
-        input_proposicion.setPlaceholderText("Enter the proposition")
+        input_proposicion.setPlaceholderText("Escribir aca la proposicion a procesar.")
+        
         layout.addWidget(input_proposicion)
         
 
-        button_check = QPushButton("Check syntax",self)    
+        button_check = QPushButton("Validar sintaxis",self)    
         button_check.setToolTip("Check the syntaxis of proposition")
         layout.addWidget(button_check)
 
@@ -33,13 +45,8 @@ class MainWindow(QMainWindow):
         label_source.setText(linkTemplate.format('https://github.com/IonatanPerez/ProposicionesLogicas', 'Source code'))
         label_source.setAlignment(Qt.AlignRight)
         layout.addWidget(label_source)
-        
-        widget_main = QWidget()
-        widget_main.setLayout(layout)
 
-        self.setCentralWidget(widget_main)
-        self.setStatusBar(QStatusBar(self))
-        
+        return layout
 
 app = QApplication(sys.argv)
 
