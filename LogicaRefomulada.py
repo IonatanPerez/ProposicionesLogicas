@@ -38,14 +38,15 @@ class ExpresionTextual:
     "Esta clase involucra el proceso de transformar un texto en un operador o una proposicion"
 
     name = "ExpresionTextual"
-    #operadores = [Parentesis, SiSoloSi, Implica, Y, O, OExcluyente, Proposicion]
+    #operadores = [Parentesis, SiSoloSi, Implica, Y, O, OExcluyente, Negacion, Proposicion]
 
     def __init__ (self,contenido,padre):
         self.operadores = [Parentesis] # Esto estaria bueno ponerlo en la clase Convenciones pero tengo un problema porque al ser static no los reconoce si no los defino mas arriba
-        self.contenido = contenido
+        self.contenido = contenido # Si tidavia nunca se busco un parentesis contenido deberia ser str sino una lista con algun elemento del tipo Parentesis y el resto texto
         self.padre = padre
         self.validada = False
         self.procesar()
+
 
     def procesar(self):
         for operador in self.operadores:
@@ -54,11 +55,16 @@ class ExpresionTextual:
                     if operador.sintaxisValida(self.contenido):
                         self.contenido = operador.aplicarOperador(self.contenido)
                     else:
-                        return
+                        return #TODO Ver como manejar errores, la idea seria que el mensaje de error se genere abajo pero no se rompa el programa.
                 else:
                     pass
-        # Aca falta chequear que quede un solo elemento y si es texto reemplazarlo por una proposicion
-        self.validada = True
+        # Aca ya deberia haber solo un elemento en la lista que sea el operador que corresponda
+        assert len(self.contenido) == 1, "Error de logica de programacion, una vez que una expresion textual ya paso todos las evaluacion de todos los operadores posibles solo deberia quedar un elemento que sea un operador"
+        self.contenido = self.contenido[0]
+        if self.contenido.name == "Parentesis":
+            return self.contenido.contenido
+        else:
+            return self.contenido
 
 class Parentesis:
 
@@ -89,7 +95,7 @@ class Parentesis:
     def aplicarOperador(cls,texto):
         pares = cls.buscarPares(texto)
         if pares == -1:
-            return [texto]
+            return [texto] # TODO esto deberia dar error, no un texto op creo que podria sacar todoi este bloque
         out = []
         last = -1
         for par in pares:
@@ -143,26 +149,35 @@ class Parentesis:
                 Mensajes.MensajeErrorSintaxis(texto,"En la expresion se encontro un parentesis de cierre y uno de apertura sin ninguna expresión entre medio.",cls.name)
                 return -1
             lastclose = par[1]
-        return pares
-
-
-    @classmethod
-    def tablaDeVerdad(cls,p):
-        assert type(p) == bool, "La tabla de verdad solo se puede construir con valores booleanos"
-        return p
+        return pares #TODO manejar mensajes de error
 
     # Empezamos los metodos que corresponden a las instancias y no a la clase.
     def __init__ (self,texto,padre=None):
-        "Se crea un elemento a partir de un texto que esta dentro de un parentesis"
+        """Se crea un elemento a partir de un texto que esta dentro de un parentesis. 
+        Los objetos del tipo parentesis solo tienen una vida temporal corta durante la logica de analisis sintactico, no perduran en la estructura final."""
         self.padre = padre
-        self.child = ExpresionTextual(texto,self)
+        self.contenido = ExpresionTextual(texto,self)
+
+    
+class Proposicion:
+
+    name = "Proposicion"
+    setDeProposiciones = ()
+    
+    def __init__(self,texto,valorVerdad=True,padre=None):
+        self.texto = texto
+        self.valorVerdad = True
+        self.padre = padre
 
     def toText(self):
-        return Parentesis.simboloApertura + self.child.toText() + Parentesis.simboloCierre
+        return self.texto
 
     def evaluar(self):
-        return self.tablaDeVerdad(self.child.evaluar())
-    
+        return self.valorVerdad
+
+    def setValorVerdad(self,valorVerdad):
+        assert type(valorVerdad) == bool, "La tabla de verdad solo se puede construir con valores booleanos"
+        self.valorVerdad = valorVerdad
 
 class Mensajes:
     "Clase encargada de manejar la interfaz de mensajes al usuario. Esta como clase separada para poder adaptar el modo en que se presentan los mensajes segun el GUI usado."

@@ -115,3 +115,37 @@ Una vez segmentada y validada la expresion la idea es recorrela para buscar en l
 ### Representacion grafica (pendiente)
 
 En principio la solucion facil es crear tablas pandas y trabajarlo con una visualizacion tipica de dataframes donde cada fila es una combinacion de valor de verdad de las proposiciones y cada columna cada una de las expresiones anidadas (habria que ordenarlas en orden de menor a mayor complejidad). Despue se puede pensar en hacer una interfaz grafica mas copada. 
+
+
+
+
+
+
+## Documentacion de logica reformulacion
+
+
+### Algoritmo de busqueda de estructura
+
+1) Tengo expresiones textuales que es un bloque que incluye texto sin procesar o eventualmente una lista con textos y con bloques parentesis. En caso de que sea lista salteo paso siguiente.
+2) Primero valido sintaxis y despues busco parentesis y entonces el contenido de la expresion se transforma en una lista donde hay partes que pueden ser un objeto parentesis que deja de ser texto
+3) Busco otros operadores de la forma EOE y despues OE. En caso de que se encuentre uno se corta la busqueda de operadores y queda algo de la forma: [[texto]+[Parentesis]][Operador][[texto]+[Parentesis]] donde lo que esta entre los corchetes externos se transforma en expresiones textuales que se procesaran recursivamente con la misma logica.
+4) Valido y busco Proposiciones (tiene que dar error de sintaxis si quedo una lista con Parentesis incluidos, si solo hay un Parentesis lo trasnformo en expresion textual porque es un parentesis redundante). Si hay Proposiciones las agrego a un set de proposiciones (para idetificar mas de una ocurrencia de la misma Proposicion) y transformo el texto en elemento Proposicion.
+5) Si no queda texto y no elevo error de sintaxis durante el proceso quiere decir que ya esta armada la expresion a ese nivel (y por recuerencia a todos los inferiores), entonces lo que se debe hacer es que la expresion textual devuelva un objeto de tipo expresion proposional (EOE, OE, Proposicion). En caso de que el contenido de un Expresion Proposicional sea un parentesis significa que ese parentesis es redundante (en la logica del programa, no necesariamente en la sintaxis inicial[1]) porque ese parentesis ya "aislo" el contenido del la busqueda de operadores a nieveles mas alto, pero ya no es necesario y en ese caso en lugar de devolver un objeto de tipo parentesis se debe devolver Parentesis.child que es el resultado de la expresion textual que hay dentro del parentesis.
+8) Armar las tablas de verdad iterando sobre los valores de verdad de las Proposiciones y evaluando las "expresiones proposicionales"
+
+
+
+
+[1] La expresion "(p<=>q)vp" tiene un parentesis necesario porque lo que dice ese parentesis es que hay que priorizar un orden de resolucion diferente al natural. Esta estructura sin parentesis sintacticos y con los parentesis naturales (que denominaremos "{}") quedaria de la forma:
+
+p<=>qvp            -->            {p} <=> {{q} v {p}}
+
+pero con los parentesis sintacticos queda:
+
+(p<=>q)vp --> {(p<=>q)} v {p} --> {{p} <=> {q}} v {p}
+
+En cambio, la expresion p<=>(qvp) tiene parentesis sintacticos redundantes (porque coiciden con los "naturales"), es decir
+
+p<=>qvp          -->                    {p} <=> {{q} v {p}}
+
+p<=>(qvp) --> {p} <=> {({p} v {q})} --> {p} <=> {{p} v {q}} 
