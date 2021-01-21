@@ -155,16 +155,6 @@ class Negacion(Operador):
         expresion.continuarvalidacion = False
 
 
-class Proposicion:
-    name = "Proposicion"
-
-    @classmethod
-    def reemplazarCaracteres(cls,texto):
-        return texto
-
-    @classmethod
-    def contarOcurrencias(cls, texto):
-        return True
 
 class Expresion:
 

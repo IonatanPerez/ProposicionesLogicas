@@ -7,4 +7,6 @@ print (texto[:0])
 print (texto[0:2])
 
 exec ("pp = 8")
-print (pp*2)
+chau = "\\" + "hola"
+chau = chau.replace("o","\\")
+print (chau)
