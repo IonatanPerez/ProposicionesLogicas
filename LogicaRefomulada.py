@@ -14,10 +14,25 @@ class Convenciones:
         "Negación": ["!", "~", "¬", "not", "NOT"]
     }
 
+    prioridades = {
+        0 : ["Parentesis de apertura","Parentesis de cierre"],
+        1 : ["SiSoloSi"], 
+        2 : ["Implica"],
+        3 : ["Y", "O", "O excluyente"],
+        4 : ["Negación"]
+    }
+
     simbolos = {}
 
     for key in equivalencias:
         simbolos[key] = equivalencias[key][0]
+
+    operadoresEOE {
+        "SiSoloSi" : {
+            "asociativo" : False
+            "prioridad" : 1
+        }
+    }
 
     @classmethod
     def reemplazarcaracteres (cls,texto):
@@ -35,6 +50,14 @@ class Convenciones:
         if not textoOriginal == texto:
             Mensajes.MensajeLog("Se ha reemplazado la expresión: '" + textoOriginal + "' por la expresión '" + texto + "' para usar los caracteres estandarizados")
         return texto
+
+    @classmethod
+    def buscarPrioridad(cls,name):
+        for key in cls.prioridades:
+            if name in cls.prioridades[key]:
+                return key
+        Mensajes.MensajeErrorLogico("Se esta buscando la prioridad de un operador que no tiene definida la prioridad")
+        return -1 #TODO hacer mejor manejo de errores.
 
 class ExpresionTextual:
     "Esta clase involucra el proceso de transformar un texto en un operador o una proposicion"
@@ -84,6 +107,7 @@ class ExpresionTextual:
             Mensajes.MensajeErrorSintaxis(texto,"El caracter '\\' es un caracter reservado y no puede ser parte de la expresión",cls.name)
             return
         texto = Convenciones.reemplazarcaracteres(texto)
+        texto = texto.replace(" ","")
         return ExpresionTextual.ProcesarExpresionTextual(texto,None)
 
 class Parentesis:
@@ -240,19 +264,37 @@ class Mensajes:
         print(txt)
 
     @classmethod
-    def MensajeErrorSintaxis (cls,expresion,error,tipoDeOperador):
-        msg = "En la expresión '"+ expresion +"' se encontro un error al buscar elementos del tipo " + tipoDeOperador + " donde se reporto el siguiente mensaje: '" + error +"'"
+    def MensajeErrorSintaxis (cls,expresion,error,nombreTipoDeOperador):
+        msg = "En la expresión '"+ expresion +"' se encontro un error al buscar elementos del tipo " + nombreTipoDeOperador + " donde se reporto el siguiente mensaje: '" + error +"'"
         print (msg)
-    
+
+class SiSoloSi:
+    "Clase que contiene la informacion especifica y el objeto SiSoloSi."
+    asociativo = False
+    tipo = "EOE"
+    name ="SiSoloSi"
+    simbolo = Convenciones.simbolos[name]
+    prioridad = Convenciones.buscarPrioridad(name)
+
+class Y:
+    "Clase que contiene la informacion especifica y el objeto Y."
+    asociativo = True
+    tipo = "EOE"
+    name ="Y"
+    simbolo = Convenciones.simbolos[name]
+    prioridad = Convenciones.buscarPrioridad(name)
+
 def findOccurrences(substring, string):
     " Busca ocurrencias de un substring, el unico caracter no permitido es un '\\' por un problema con Regex y Python"
-    specials = [".","+","*","?","^","$","(",")","[","]","{","}","|"]
-    for original in specials:
-        reemplazo = "\\" + original
-        substring = substring.replace(original, reemplazo)
-    return [m.start() for m in re.finditer(substring, string)]
-    # return [i for i, letter in enumerate(s) if letter == ch]
-
+    if len(substring) == 1:
+        return [i for i, letter in enumerate(string) if letter == substring]
+    else:
+        specials = [".","+","*","?","^","$","(",")","[","]","{","}","|"]
+        for original in specials:
+            reemplazo = "\\" + original
+            substring = substring.replace(original, reemplazo)
+        return [m.start() for m in re.finditer(substring, string)]
+    
 def elementosToTexto(elementos):
     texto = ""
     for elemento in elementos:
@@ -262,14 +304,84 @@ def elementosToTexto(elementos):
             texto = texto + elemento.toText()
     return texto
 
+def elementosToTextoSinParentesis(elementos):
+    texto = ""
+    for elemento in elementos:
+        if type(elemento) == str:
+            texto = texto + elemento
+        else:
+            if not elemento.name == Parentesis.name:
+                Mensajes.MensajeErrorLogico("Se esta queriendo sacar parentesis de una lista de elementos donde hay un objeto que no es un parentesis, esto no deberia pasar porque esta funcion solo sirve para estudiar o precoesa una expersion ingnorando el contenido de los parentesis")
+    return texto
 
+def validarSintaxisEOE(elementos,Operador):
+    "Valida que la expresion recibida (sacando el contenido de los eventuales parentesis pueda segmentarse con la logica que corresponde al operador."
+    # Unificamos todo lo que es texto en un solo string (sacamos lo que esta dentro de un parentesis) para estudiar si no hay error de sintaxis o de prioridades en la expresion
+    textoCompleto = elementosToTexto(elementos)
+    texto = elementosToTextoSinParentesis(elementos)
+    # Verificamos que no haya ambiguedades por haber mas de un operador diferente con la misma prioridad en la expresion.
+    if len (Convenciones.prioridades[Operador.prioridad]) > 1:
+        nombreOperadoresIgualPrioridad = Convenciones.prioridades[Operador.prioridad]
+        for nombreOperador in nombreOperadoresIgualPrioridad:
+            if not Operador.name == nombreOperador:
+                if findOccurrences(Convenciones.simbolos[nombreOperador],texto):
+                    Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro una ambiguedad porque junto al simbolo " + Operador.simbolo + " se encontro el simbolo " + Convenciones.simbolos[nombreOperador] + " y ambos operadores comparten prioridad de aplicación.", Operador.name)
+                    return False
+    # Verificamos que no haya mas de un operador del mismo tipo salvo que sea asociativo.
+    ocurrencias = findOccurrences(Operador.simbolo,texto)
+    if len (ocurrencias) > 1:
+        if not Operador.asociativo:
+            Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro mas de una ocurrencia del simbolo que corresponde al operador '" + Operador.simbolo + "' al mismo nivel de prioridad y no es un operador que conmute, la expresion es ambigua.", Operador.name)
+            return False
+        else:
+            keep = -2
+            for ocurrencia in ocurrencias:
+                if ocurrencia - keep == 1:
+                    Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro mas de una ocurrencia del operador '" + Operador.simbolo + "' a continuación de otra lo cual no permite evaluar la expresión.", Operador.name)
+                    return False
+                keep = ocurrencia + len(Operador.simbolo) - 1
+    for ocurrencia in ocurrencias:
+        if ocurrencia == 0:
+            if type(elementos[0]) ==str:
+                Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + Operador.simbolo + "' al principio de la expresión y este operador necesita algo que lo preceda.",Operador.name)
+        if ocurrencia == len(texto) - len(Operador.simbolo):
+            if type(elementos[-1]) == str:
+                Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + Operador.simbolo + "' al final de la expresión y este operador necesita algo que lo suceda.",Operador.name)
+    return True
 
+def segmentarEOE(elementos,Operador):
+    elementosIzq = []
+    elementosDer = []
+    encontrado = False
+    for elemento in elementos:
+        if not encontrado:
+            if not type(elemento) == str:
+                elementosIzq += [elemento]
+            else:
+                ocurrencias = findOccurrences(Operador.simbolo,elemento)
+                if not ocurrencias:
+                    elementosIzq += [elemento]
+                else: 
+                    Izq = elemento[:ocurrencias[0]]
+                    Der = elemento[ocurrencias[0]+len(Operador.simbolo):]
+                    elementosIzq += [Izq]
+                    elementosDer += [Der]
+                    encontrado = True
+        else:
+            elementosDer += [elemento]
+    return elementosIzq,elementosDer
 
+def poblarEOE 
 
+elementos = ["laY<=>","CYhau"]
+Operador = Y
 
-texto = "([hd))"
+validarSintaxisEOE(elementos,Operador)
+aplicarEOE(elementos,Operador)
 
-exp = ExpresionTextual.ExpresionInicial(texto)
-print (exp)
+#texto = "([hd ))"
+
+#exp = ExpresionTextual.ExpresionInicial(texto)
+#print (exp)
 
 

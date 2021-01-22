@@ -1,68 +1,6 @@
 
 class EOE(Operador):
-    """
-    Operador generico del tipo EOE que toma una expresion y la segmenta en algo del tipo Expresion Operador Expresion.
-
-    Es una clase completamente estatica ya que no tiene sentido que haya instancias del operado que funciona siempre igual y es 
-    independiente de los objetos (expresiones u proposiciones sobre los que actua)
     
-    """
-    name = "EOE"
-    asociativo = None
-    prioridad = None
-    simbolo = None
-    
-    @classmethod
-    def contarOcurrencias(cls,texto):
-        "Cuenta cuantas ocurrencias del simbolo que corresponde al operador hay en un texto."
-        numeroDeOcurrencias = 0
-        while not texto.find(cls.simbolo) == -1:
-            texto = texto.replace(cls.simbolo,"",1)
-            numeroDeOcurrencias += 1
-        return numeroDeOcurrencias
-
-    @classmethod
-    def aplicarOperador(cls,expresion):
-        "Verifica que no haya errores de sintaxis en los elementos a procesar (que son una cadena de str y expresiones provenientes de parentesis) y luego segmenta segun corresponda genernado en la expresion que recibe las expresiones y el operador correspondiete."
-        if cls.asociativo:
-            for operador in expresion.operadores:
-                if cls.prioridad == operador.prioridad and not cls.name == operador.name:
-                    if operador.contarOcurrencias(expresion.textoRemanente):
-                        MensajeError(expresion,cls,"En la expresion se encontro un operador del tipo " + cls.simbolo + " junto a otro de tipo " + operador.simbolo + " y es ambiguo cual se debe aplicar primero.")
-                        return
-        else:
-            if cls.contarOcurrencias(expresion.textoRemanente) > 1:
-                MensajeError(expresion,cls,"En la expresion se encontro mas de un operador del tipo " + cls.simbolo + " y es ambiguo cual se debe aplicar primero.")
-                return
-
-        numeroDeElementoConSimbolo = -1
-        for idx, elemento in enumerate(expresion.elementosTemporales):
-            if type(elemento) == str:
-                if elemento.count(cls.simbolo):
-                    numeroDeElementoConSimbolo = idx
-                    break
-        indiceDeOcurrencia = expresion.elementosTemporales[numeroDeElementoConSimbolo].find(cls.simbolo)
-        pre = expresion.elementosTemporales[numeroDeElementoConSimbolo][:indiceDeOcurrencia]
-        post = expresion.elementosTemporales[numeroDeElementoConSimbolo][indiceDeOcurrencia+len(cls.simbolo):]
-        if pre:
-            expresionIzquierda = expresion.elementosTemporales[:numeroDeElementoConSimbolo] + [pre]
-        else:
-            expresionIzquierda = expresion.elementosTemporales[:numeroDeElementoConSimbolo]
-        if post:
-            expresionDerecha = [post] + expresion.elementosTemporales[numeroDeElementoConSimbolo+1:]
-        else:
-            expresionDerecha = expresion.elementosTemporales[numeroDeElementoConSimbolo+1:]
-        if not expresionIzquierda:
-            MensajeError(expresion,cls,"No se encontró una expresion valida delante del operador " + cls.simbolo + ".")
-            return
-        if not expresionDerecha:
-            MensajeError(expresion,cls,"No se encontró una expresion valida detras del operador " + cls.simbolo + ".")
-            return
-        expresion.elementosTemporales = []
-        expresion.subexpresiones = [Expresion.crearsubexpresion(expresionIzquierda,expresion),Expresion.crearsubexpresion(expresionDerecha,expresion)]
-        expresion.operacion = cls
-        expresion.continuarvalidacion = False
-
     @classmethod
     def totext(cls,expresion):
         return expresion.subexpresiones[0].totext() + cls.simbolo + expresion.subexpresiones[1].totext()
