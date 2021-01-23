@@ -109,12 +109,8 @@ class Operador:
             izq,der = self.segmentarEOE(elementos)
         if self.tipo == "OE":
             izq,der = self.segmentarOE(elementos)
-        try {
-            expresionIzq = ExpresionTextual.ProcesarExpresionTextual(izq,self)
-        }
-        try {
-            expresionDer = ExpresionTextual.ProcesarExpresionTextual(der,self)
-        }
+        self.expresionIzq = ExpresionTextual.ProcesarExpresionTextual(izq,self)
+        self.expresionDer = ExpresionTextual.ProcesarExpresionTextual(der,self)
         self.procesadoConExito = True
 
     def segmentarEOE(self,elementos):
@@ -242,9 +238,9 @@ class ExpresionTextual:
             else:
                 return #TODO Ver como manejar errores, la idea seria que el mensaje de error se genere abajo pero no se rompa el programa.
         listaDeOperadores = Convenciones.operadoresEnOrden()
+        texto = elementosToTextoSinParentesis(self.contenido)
         for nombreOperador in listaDeOperadores:
             # Vemos si hay una ocurrencia en el texto sin parentesis
-            texto = elementosToTextoSinParentesis(self.contenido)
             ocurrencias = findOccurrences(Convenciones.simbolos[nombreOperador],texto)
             if ocurrencias:
                 operador = Operador(nombreOperador,padre)
@@ -253,11 +249,14 @@ class ExpresionTextual:
                 else:
                     pass # TODO ver como reportar errores
                 self.contenido = [operador]
-                
-        # TODO aplicar la logica de proposicion
+
+        Proposicion.validarSintaxis (self.contenido)                
+
+
         # Aca ya deberia haber solo un elemento en la lista que sea el operador que corresponda
-        assert len(self.contenido) == 1, "Error de logica de programacion, una vez que una expresion textual ya paso todos las evaluacion de todos los operadores posibles solo deberia quedar un elemento que sea un operador"
+        assert len(self.contenido) == 1, ErrorLogico("Error de logica de programacion, una vez que una expresion textual ya paso todos las evaluacion de todos los operadores posibles solo deberia quedar un elemento que sea un operador",self.contenido)
         self.contenido = self.contenido[0]
+
         """    Creo que esto hace mas lio que otra cosa. Servia para eliminar posibles parentesis redundantes, pero obliga a reconstruir toda la estructura de operadores con parentesis explicitos o hacer muy complicado preservar los parentesis manuales.
         if self.contenido.name == "Parentesis":
             return self.contenido.contenido
@@ -381,21 +380,22 @@ class Proposicion:
     setDeProposiciones = set()
 
     @classmethod
-    def sintaxisValida(cls,elementos):
+    def validarSintaxis(cls,elementos):
         if len(elementos) > 1:
             texto = elementosToTexto(elementos)
             for elemento in elementos:
                 if elemento.name == Parentesis.name:
-                    Mensajes.MensajeErrorSintaxis(texto,"En la expresion se encontro un parentesis concatenado a una proposicion sin conector lógico de por medio.",Proposicion.name)
-                    return False
+                    raise ErrorSintaxis(texto,"En la expresion se encontro un parentesis concatenado a una proposicion sin conector lógico de por medio.",Proposicion.name)
                 else: 
-                    Mensajes.MensajeErrorLogico("Al tratar de validar una expresion como Proposicion hay dos elementos sin que uno sea un parentesis")
-                    return False
+                    raise ErrorLogico("Al tratar de validar una expresion como Proposicion hay dos elementos sin que uno sea un parentesis",elementos)
         else:
+            if not type(elementos[0]) 
             return True
 
     @classmethod
     def aplicarOperador(cls,elemento):
+        cls.validarSintaxis(elementos)
+
         elemento = elemento[0]
         if type(elemento) == str:
             for propExistente in cls.setDeProposiciones:
@@ -426,17 +426,23 @@ class Mensajes:
     "Clase encargada de manejar la interfaz de mensajes al usuario. Esta como clase separada para poder adaptar el modo en que se presentan los mensajes segun el GUI usado."
 
     @classmethod
-    def MensajeLog(cls,txt,level="Info"):
-        print (txt)
-
-    @classmethod
     def MensajeErrorLogico (cls,txt):
         print(txt)
 
-    @classmethod
-    def MensajeErrorSintaxis (cls,expresion,error,nombreTipoDeOperador):
-        msg = "En la expresión '"+ expresion +"' se encontro un error al buscar elementos del tipo " + nombreTipoDeOperador + " donde se reporto el siguiente mensaje: '" + error +"'"
-        print (msg)
+class ErrorSintaxis(Exception):
+    "Clase que se encarga de manejar los errores de sintaxis"
+    #TODO aca se podria vincular con la GUI.
+    def __init__(self,expresion,error,nombreTipoDeOperador):
+        self.msg = "En la expresión '"+ expresion +"' se encontro un error al buscar elementos del tipo " + nombreTipoDeOperador + " donde se reporto el siguiente mensaje: '" + error +"'"
+        super().__init__(self.msg)
+
+class ErrorLogico(Exception):
+    "Clase que se encarga de manejar los errores de programacion. Idealmente no deberia usarse, pero como la logica del algoritmo es compleja previene y explica donde hay situaciones que no deberia suceder. Es una especie de assert."
+    #TODO aca se podria vincular con la GUI.
+    def __init__(self,texto,contexto):
+        self.msg = texto
+        self.contexto = contexto
+        super().__init__(self.msg)
 
 
 def findOccurrences(substring, string):
@@ -466,22 +472,35 @@ def elementosToTextoSinParentesis(elementos):
             texto = texto + elemento
         else:
             if not elemento.name == Parentesis.name:
-                Mensajes.MensajeErrorLogico("Se esta queriendo sacar parentesis de una lista de elementos donde hay un objeto que no es un parentesis, esto no deberia pasar porque esta funcion solo sirve para estudiar o precoesa una expersion ingnorando el contenido de los parentesis")
+                raise ErrorLogico("Se esta queriendo sacar algo que no es un parentesis de una lista de elementos donde hay un objeto que no es un parentesis, esto no deberia pasar porque esta funcion solo sirve para estudiar o precesar una expersion ingnorando el contenido de los parentesis",elementos)
     return texto
 
 
+def tests(caso):
+
+    if caso == 1:
+        # Probamos que este andando el raise
+        elementos = ["hola","chau"] # No tiene que devolver error
+        elementosToTextoSinParentesis (elementos)
+        elementos = ["hola",Proposicion("hola"),"chau"] # No tiene que devolver error
+        elementosToTextoSinParentesis (elementos)
+    if caso == 2: # Probamos la funcion elementosToTexto
+        elementos = ["hola",Proposicion("cucu"),"chau"]
+        print (elementosToTexto(elementos))
+        elementos = ["hola",Parentesis("cucu"),"chau"]
+        print (elementosToTexto(elementos))
+
+def principal(caso):
+    try:
+        tests(caso)
+    except ErrorLogico as error:
+        print ("Se detecto un error en la logica de procesamiento de datos, contacte al desarrollador. Se detalla el error a continucación.")
+        print (error.msg)
+        print ("El contexto del error fue el siguiente:")
+        print (error.contexto)
+    except ErrorSintaxis as error:
+        print ("Se interrumpio el proceso porque se detecto un error de sintaxis.")
+        print (error.msg)
 
 
-elementos = ["lOa","ChaOuee"]
-tipoOperador = "O"
-operador = Operador(tipoOperador)
-
-operador.validarSintaxisEOE(elementos)
-print (segmentarEOE(elementos,operador))
-
-#texto = "([hd ))"
-
-#exp = ExpresionTextual.ExpresionInicial(texto)
-#print (exp)
-
-
+principal(2)
