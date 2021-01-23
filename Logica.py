@@ -1,7 +1,7 @@
 
 class EOE(Operador):
     
-    @classmethod
+@classmethod
     def totext(cls,expresion):
         return expresion.subexpresiones[0].totext() + cls.simbolo + expresion.subexpresiones[1].totext()
 

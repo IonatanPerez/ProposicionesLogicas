@@ -3,36 +3,71 @@ import re
 class Convenciones:
     "Clase encargada de conocer las equivalencias de simbolos y hacer los reemplazos necesarios"
 
-    equivalencias = {
-        "Parentesis de apertura" : ["(","[","{"],
-        "Parentesis de cierre" : [")","]","}"],
-        "SiSoloSi": ["<=>","<->"],
-        "Implica": ["=>","->"],
-        "Y": ["Y","y","^","&","AND","and"],
-        "O": ["O","o","V","v","+","or","OR"],
-        "O excluyente": ["Ó","ó","xor","XOR"],
-        "Negación": ["!", "~", "¬", "not", "NOT"]
+    operadores = {
+        "SiSoloSi" : {
+            "tipo" : "EOE",
+            "asociativo" : False,
+            "prioridad" : 1,
+            "simbolos" : ["<=>","<->"]
+        },
+        "Implica" : {
+            "tipo" : "EOE",
+            "asociativo" : False,
+            "prioridad" : 2,
+            "simbolos" : ["=>","->"]
+        },
+        "Y" : {
+            "tipo" : "EOE",
+            "asociativo" : True,
+            "prioridad" : 3,
+            "simbolos" : ["Y","y","^","&","AND","and"]
+        },
+        "O" : {
+            "tipo" : "EOE",
+            "asociativo" : True,
+            "prioridad" : 3,
+            "simbolos" : ["O","o","V","v","+","or","OR"]
+        },
+        "O Excluyente" : {
+            "tipo" : "EOE",
+            "asociativo" : True,
+            "prioridad" : 3,
+            "simbolos" : ["Ó","ó","xor","XOR"]
+        },
+        "Negacion" : {
+            "tipo" : "OE",
+            "asociativo" : True,
+            "prioridad" : 4,
+            "simbolos" : ["!", "~", "¬", "not", "NOT"]
+        }
     }
 
-    prioridades = {
-        0 : ["Parentesis de apertura","Parentesis de cierre"],
-        1 : ["SiSoloSi"], 
-        2 : ["Implica"],
-        3 : ["Y", "O", "O excluyente"],
-        4 : ["Negación"]
+    parentesis = {
+        "Parentesis de apertura" : {
+            "simbolos" : ["(","[","{"]
+        },
+        "Parentesis de cierre" : {
+            "simbolos" :  [")","]","}"]
+        }
     }
+
+    equivalencias = {}
+    for key in parentesis:
+        equivalencias[key] = parentesis[key]["simbolos"]
+    for key in operadores:
+        equivalencias[key] = operadores[key]["simbolos"]
 
     simbolos = {}
-
     for key in equivalencias:
         simbolos[key] = equivalencias[key][0]
 
-    operadoresEOE {
-        "SiSoloSi" : {
-            "asociativo" : False
-            "prioridad" : 1
-        }
-    }
+    prioridades = {}
+    for name in operadores:
+        prioridad = operadores[name]["prioridad"]
+        if prioridad in prioridades:
+            prioridades[prioridad] = prioridades[prioridad] + [name]
+        else:
+            prioridades[prioridad] = [name]
 
     @classmethod
     def reemplazarcaracteres (cls,texto):
@@ -52,12 +87,139 @@ class Convenciones:
         return texto
 
     @classmethod
-    def buscarPrioridad(cls,name):
-        for key in cls.prioridades:
-            if name in cls.prioridades[key]:
-                return key
-        Mensajes.MensajeErrorLogico("Se esta buscando la prioridad de un operador que no tiene definida la prioridad")
-        return -1 #TODO hacer mejor manejo de errores.
+    def operadoresEnOrden (cls):
+        lista = []
+        valorMaximo = max(cls.prioridades.keys())
+        for prioridad in range(valorMaximo+1):
+            if prioridad in cls.prioridades:
+                for nombre in cls.prioridades[prioridad]:
+                    lista += [nombre] 
+        return lista
+
+class Operador:
+    def __init__(self,tipoOperador,padre):
+        self.padre = padre
+        for key in Convenciones.operadores[tipoOperador]:
+            setattr(self,key,Convenciones.operadores[tipoOperador][key])
+        setattr (self,"simbolo",Convenciones.simbolos[tipoOperador])
+        self.name = tipoOperador
+
+    def poblar(self,elementos):
+        if self.tipo == "EOE":
+            izq,der = self.segmentarEOE(elementos)
+        if self.tipo == "OE":
+            izq,der = self.segmentarOE(elementos)
+        try {
+            expresionIzq = ExpresionTextual.ProcesarExpresionTextual(izq,self)
+        }
+        try {
+            expresionDer = ExpresionTextual.ProcesarExpresionTextual(der,self)
+        }
+        self.procesadoConExito = True
+
+    def segmentarEOE(self,elementos):
+        elementosIzq = []
+        elementosDer = []
+        encontrado = False
+        for elemento in elementos:
+            if not encontrado:
+                if not type(elemento) == str:
+                    elementosIzq += [elemento]
+                else:
+                    ocurrencias = findOccurrences(self.simbolo,elemento)
+                    if not ocurrencias:
+                        elementosIzq += [elemento]
+                    else: 
+                        Izq = elemento[:ocurrencias[0]]
+                        Der = elemento[ocurrencias[0]+len(self.simbolo):]
+                        elementosIzq += [Izq]
+                        elementosDer += [Der]
+                        encontrado = True
+            else:
+                elementosDer += [elemento]
+        return elementosIzq,elementosDer
+
+    def segmentarOE(self,elementos):
+        elementosDer = []
+        assert type(elementos[0]) == str, "No puede haber un parentesis u otro objeto en el primer lugar de la expresion si se encontro un operador OE, antes de llegar aca se deberia validar sintaxis"
+        assert findOccurrences(self.simbolo,elemento)[0] == 0, "No puede haber un simbolo que no sea el del operador en el primer lugar de la expresion si se encontro un operador OE, antes de llegar aca se deberia validar sintaxis" 
+        elementos[0] = elementos[0][1:]
+        elementos = [elemento for elemento in elementos if elemento] # Eliminamos los casilleros vacios para el caso particular de que haya una negacion de un parentesis
+        return None, elementos
+
+    def sintaxisValida(self,elementos):
+        "Valida que la expresion recibida (sacando el contenido de los eventuales parentesis pueda segmentarse con la logica que corresponde al operador. Es muy similar el codigo al EOE excepto que tiene que no haber nada delante del operador."
+        # Unificamos todo lo que es texto en un solo string (sacamos lo que esta dentro de un parentesis) para estudiar si no hay error de sintaxis o de prioridades en la expresion
+        textoCompleto = elementosToTexto(elementos)
+        texto = elementosToTextoSinParentesis(elementos)
+        #Verificamos que no haya ambiguedades por haber mas de un operador diferente con la misma prioridad en la expresion.
+        if not self.validarSintaxisPrioridad(texto,textoCompleto):
+            return False
+        # Verificamos que no haya mas de un operador del mismo tipo salvo que sea asociativo.
+        if not self.validarSintaxisAsociativo(texto,textoCompleto):
+            return False
+        # Verificamos que tengo elementos delante y detras segun corresponda.
+        if self.tipo == "EOE":
+            if not self.validarSintaxisEOE(elementos,texto,textoCompleto):
+                return False
+        if self.tipo == "OE":
+            if not self.validarSintaxisOE(elementos,texto,textoCompleto):
+                return False
+        return True
+
+    def validarSintaxisEOE(self,elementos,texto,textoCompleto):
+        ocurrencias = findOccurrences(self.simbolo,texto)
+        for ocurrencia in ocurrencias:
+            if ocurrencia == 0:
+                if type(elementos[0]) ==str:
+                    Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + self.simbolo + "' al principio de la expresión y este operador necesita algo que lo preceda.",self.name)
+                    return False
+            if ocurrencia == len(texto) - len(self.simbolo):
+                if type(elementos[-1]) == str:
+                    Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + self.simbolo + "' al final de la expresión y este operador necesita algo que lo suceda.",self.name)
+                    return False
+        return True
+
+    def validarSintaxisOE(self,elementos,texto,textoCompleto):
+        ocurrencias = findOccurrences(self.simbolo,texto)
+        if (ocurrencias[0] != 0) or (type(elementos[0])!=str):
+            Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + self.simbolo + "' que no esta al principio de la expresión ni consecutivo a otro.",self.name)
+            return False
+        keep = -1
+        for ocurrencia in ocurrencias:
+            if ocurrencia - keep != 1:
+                Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + self.simbolo + "' que no esta al principio de la expresión ni consecutivo a otro.",self.name)
+            keep = ocurrencia
+            return False
+        return True
+
+    def validarSintaxisPrioridad(self,texto,textoCompleto):
+        "Verificamos que no haya ambiguedades por haber mas de un operador diferente con la misma prioridad en la expresion."
+        nombreOperadoresIgualPrioridad = Convenciones.prioridades[self.prioridad]
+        if len (nombreOperadoresIgualPrioridad) > 1:
+            for nombreOperadorIgualPrioridad in nombreOperadoresIgualPrioridad:
+                if not self.name == nombreOperadorIgualPrioridad:
+                    if findOccurrences(Convenciones.simbolos[nombreOperadorIgualPrioridad],texto):
+                        Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro una ambiguedad porque junto al simbolo " + self.simbolo + " se encontro el simbolo " + Convenciones.simbolos[nombreOperadorIgualPrioridad] + " y ambos operadores comparten prioridad de aplicación.", self.name)
+                        return False
+        return True
+
+    def validarSintaxisAsociativo(self,texto,textoCompleto):      
+        "Verificamos que no haya mas de un operador del mismo tipo salvo que sea asociativo."
+        ocurrencias = findOccurrences(self.simbolo,texto)
+        if len (ocurrencias) > 1:
+            if not self.asociativo:
+                Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro mas de una ocurrencia del simbolo que corresponde al operador '" + self.simbolo + "' al mismo nivel de prioridad y no es un operador que conmute, la expresión es ambigua.", self.name)
+                return False
+            else:
+                if self.tipo == "EOE":
+                    keep = -2
+                    for ocurrencia in ocurrencias:
+                        if ocurrencia - keep == 1:
+                            Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro mas de una ocurrencia del operador '" + self.simbolo + "' a continuación de otra lo cual no permite evaluar la expresión.", self.name)
+                            return False
+                        keep = ocurrencia + len(self.simbolo) - 1
+        return True
 
 class ExpresionTextual:
     "Esta clase involucra el proceso de transformar un texto en un operador o una proposicion"
@@ -66,35 +228,43 @@ class ExpresionTextual:
     #operadores = [Parentesis, SiSoloSi, Implica, Y, O, OExcluyente, Negacion, Proposicion]
 
     def __init__ (self,contenido,padre):
-        self.operadores = [Parentesis,Proposicion] # Esto estaria bueno ponerlo en la clase Convenciones pero tengo un problema porque al ser static no los reconoce si no los defino mas arriba
-        self.contenido = contenido # Si tidavia nunca se busco un parentesis contenido deberia ser str sino una lista con algun elemento del tipo Parentesis y el resto texto
+        self.contenido = contenido # Si todavia nunca se busco un parentesis contenido deberia ser str sino una lista con algun elemento del tipo Parentesis y el resto texto
         self.padre = padre
-        self.validada = False
         self.resultado = self.procesar()
         return 
 
-
     def procesar(self):
-        for operador in self.operadores:
-            if operador.name == "Parentesis": # Distingue porque el parentesis es el unico operador que se tiene que aplicar al principio y solo si hay texto. Podria pasar que la expresion herede una lista en ese caso significa que ya se evaluo el operador Parentesis en la estructrura padre donde se creo esa expresion textual.
-                if type(self.contenido) == str:
-                    if operador.sintaxisValida(self.contenido):
-                        self.contenido = operador.aplicarOperador(self.contenido)
-                    else:
-                        return #TODO Ver como manejar errores, la idea seria que el mensaje de error se genere abajo pero no se rompa el programa.
+        # Primero se procesa los parentesis salvo que ya venga una lista lo que por construccion implica que ya se buscaron parentesis antes y este paso se puede saltear.
+        if type(self.contenido) == str:
+            if Parentesis.sintaxisValida(self.contenido):
+                self.contenido = Parentesis.aplicarOperador(self.contenido)
+            #TODO ver si no tiene sentio terminar aca en caso de que solo quede un parentesis.
             else:
-                if operador.sintaxisValida(self.contenido):
-                    self.contenido = operador.aplicarOperador(self.contenido)
+                return #TODO Ver como manejar errores, la idea seria que el mensaje de error se genere abajo pero no se rompa el programa.
+        listaDeOperadores = Convenciones.operadoresEnOrden()
+        for nombreOperador in listaDeOperadores:
+            # Vemos si hay una ocurrencia en el texto sin parentesis
+            texto = elementosToTextoSinParentesis(self.contenido)
+            ocurrencias = findOccurrences(Convenciones.simbolos[nombreOperador],texto)
+            if ocurrencias:
+                operador = Operador(nombreOperador,padre)
+                if operador.sintaxisValida(elementos):
+                    operador.poblar(elementos)
                 else:
-                    return #TODO Ver como manejar errores, la idea seria que el mensaje de error se genere abajo pero no se rompa el programa.
-
+                    pass # TODO ver como reportar errores
+                self.contenido = [operador]
+                
+        # TODO aplicar la logica de proposicion
         # Aca ya deberia haber solo un elemento en la lista que sea el operador que corresponda
         assert len(self.contenido) == 1, "Error de logica de programacion, una vez que una expresion textual ya paso todos las evaluacion de todos los operadores posibles solo deberia quedar un elemento que sea un operador"
         self.contenido = self.contenido[0]
+        """    Creo que esto hace mas lio que otra cosa. Servia para eliminar posibles parentesis redundantes, pero obliga a reconstruir toda la estructura de operadores con parentesis explicitos o hacer muy complicado preservar los parentesis manuales.
         if self.contenido.name == "Parentesis":
             return self.contenido.contenido
         else:
             return self.contenido
+        """
+        return self.contenido
 
     @classmethod
     def ProcesarExpresionTextual(cls,contenido,padre):
@@ -268,21 +438,6 @@ class Mensajes:
         msg = "En la expresión '"+ expresion +"' se encontro un error al buscar elementos del tipo " + nombreTipoDeOperador + " donde se reporto el siguiente mensaje: '" + error +"'"
         print (msg)
 
-class SiSoloSi:
-    "Clase que contiene la informacion especifica y el objeto SiSoloSi."
-    asociativo = False
-    tipo = "EOE"
-    name ="SiSoloSi"
-    simbolo = Convenciones.simbolos[name]
-    prioridad = Convenciones.buscarPrioridad(name)
-
-class Y:
-    "Clase que contiene la informacion especifica y el objeto Y."
-    asociativo = True
-    tipo = "EOE"
-    name ="Y"
-    simbolo = Convenciones.simbolos[name]
-    prioridad = Convenciones.buscarPrioridad(name)
 
 def findOccurrences(substring, string):
     " Busca ocurrencias de un substring, el unico caracter no permitido es un '\\' por un problema con Regex y Python"
@@ -314,70 +469,15 @@ def elementosToTextoSinParentesis(elementos):
                 Mensajes.MensajeErrorLogico("Se esta queriendo sacar parentesis de una lista de elementos donde hay un objeto que no es un parentesis, esto no deberia pasar porque esta funcion solo sirve para estudiar o precoesa una expersion ingnorando el contenido de los parentesis")
     return texto
 
-def validarSintaxisEOE(elementos,Operador):
-    "Valida que la expresion recibida (sacando el contenido de los eventuales parentesis pueda segmentarse con la logica que corresponde al operador."
-    # Unificamos todo lo que es texto en un solo string (sacamos lo que esta dentro de un parentesis) para estudiar si no hay error de sintaxis o de prioridades en la expresion
-    textoCompleto = elementosToTexto(elementos)
-    texto = elementosToTextoSinParentesis(elementos)
-    # Verificamos que no haya ambiguedades por haber mas de un operador diferente con la misma prioridad en la expresion.
-    if len (Convenciones.prioridades[Operador.prioridad]) > 1:
-        nombreOperadoresIgualPrioridad = Convenciones.prioridades[Operador.prioridad]
-        for nombreOperador in nombreOperadoresIgualPrioridad:
-            if not Operador.name == nombreOperador:
-                if findOccurrences(Convenciones.simbolos[nombreOperador],texto):
-                    Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro una ambiguedad porque junto al simbolo " + Operador.simbolo + " se encontro el simbolo " + Convenciones.simbolos[nombreOperador] + " y ambos operadores comparten prioridad de aplicación.", Operador.name)
-                    return False
-    # Verificamos que no haya mas de un operador del mismo tipo salvo que sea asociativo.
-    ocurrencias = findOccurrences(Operador.simbolo,texto)
-    if len (ocurrencias) > 1:
-        if not Operador.asociativo:
-            Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro mas de una ocurrencia del simbolo que corresponde al operador '" + Operador.simbolo + "' al mismo nivel de prioridad y no es un operador que conmute, la expresion es ambigua.", Operador.name)
-            return False
-        else:
-            keep = -2
-            for ocurrencia in ocurrencias:
-                if ocurrencia - keep == 1:
-                    Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro mas de una ocurrencia del operador '" + Operador.simbolo + "' a continuación de otra lo cual no permite evaluar la expresión.", Operador.name)
-                    return False
-                keep = ocurrencia + len(Operador.simbolo) - 1
-    for ocurrencia in ocurrencias:
-        if ocurrencia == 0:
-            if type(elementos[0]) ==str:
-                Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + Operador.simbolo + "' al principio de la expresión y este operador necesita algo que lo preceda.",Operador.name)
-        if ocurrencia == len(texto) - len(Operador.simbolo):
-            if type(elementos[-1]) == str:
-                Mensajes.MensajeErrorSintaxis(textoCompleto,"Se encontro un operador del tipo '" + Operador.simbolo + "' al final de la expresión y este operador necesita algo que lo suceda.",Operador.name)
-    return True
 
-def segmentarEOE(elementos,Operador):
-    elementosIzq = []
-    elementosDer = []
-    encontrado = False
-    for elemento in elementos:
-        if not encontrado:
-            if not type(elemento) == str:
-                elementosIzq += [elemento]
-            else:
-                ocurrencias = findOccurrences(Operador.simbolo,elemento)
-                if not ocurrencias:
-                    elementosIzq += [elemento]
-                else: 
-                    Izq = elemento[:ocurrencias[0]]
-                    Der = elemento[ocurrencias[0]+len(Operador.simbolo):]
-                    elementosIzq += [Izq]
-                    elementosDer += [Der]
-                    encontrado = True
-        else:
-            elementosDer += [elemento]
-    return elementosIzq,elementosDer
 
-def poblarEOE 
 
-elementos = ["laY<=>","CYhau"]
-Operador = Y
+elementos = ["lOa","ChaOuee"]
+tipoOperador = "O"
+operador = Operador(tipoOperador)
 
-validarSintaxisEOE(elementos,Operador)
-aplicarEOE(elementos,Operador)
+operador.validarSintaxisEOE(elementos)
+print (segmentarEOE(elementos,operador))
 
 #texto = "([hd ))"
 

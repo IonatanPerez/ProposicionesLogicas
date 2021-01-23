@@ -1,12 +1,7 @@
-def findOccurrences(s, ch):
-    return [i for i, letter in enumerate(s) if letter == ch]
+class Prueba:
+    name = "prueba"
 
-texto = "Hola"
 
-print (texto[:0])
-print (texto[0:2])
+nombre = "Prueba"
+print (bool([]))
 
-exec ("pp = 8")
-chau = "\\" + "hola"
-chau = chau.replace("o","\\")
-print (chau)
