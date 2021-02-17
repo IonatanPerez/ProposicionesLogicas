@@ -1,4 +1,7 @@
 import re
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class Convenciones:
     "Clase encargada de conocer las equivalencias de simbolos y hacer los reemplazos necesarios"
@@ -95,9 +98,11 @@ class Convenciones:
 class Operador:
     def __init__(self,tipoOperador,padre):
         self.padre = padre
-        for key in Convenciones.operadores[tipoOperador]:
-            setattr(self,key,Convenciones.operadores[tipoOperador][key])
-        setattr (self,"simbolo",Convenciones.simbolos[tipoOperador])
+        self.tipo = Convenciones.operadores[tipoOperador]["tipo"]
+        self.asociativo = Convenciones.operadores[tipoOperador]["asociativo"]
+        self.prioridad = Convenciones.operadores[tipoOperador]["prioridad"]
+        self.simbolos = Convenciones.operadores[tipoOperador]["simbolos"]
+        self.simbolo = Convenciones.simbolos[tipoOperador]
         self.name = tipoOperador
 
     def aplicar(self,elementos):
@@ -144,6 +149,9 @@ class Operador:
         # Unificamos todo lo que es texto en un solo string (sacamos lo que esta dentro de un parentesis) para estudiar si no hay error de sintaxis o de prioridades en la expresion
         textoCompleto = elementosToTexto(elementos)
         texto = elementosToTextoSinParentesis(elementos)
+        # Nos fijamos que exista el simbolo del operador porque si no hay simbolo del operador despues no se puede aplicar (esto es un error de logica porque no se deberia llegar aca)
+        ocurrencias = findOccurrences(self.simbolo,texto)
+        if not ocurrencias: raise ErrorLogico("Se esta buscando validar un operador del tipo '" + self.name + "' y no existe el caracter '" + self.simbolo + "' en lo que se quiere validar. Revisar porque se hace esto.", elementos)
         self.validarSintaxisPrioridad(texto,textoCompleto)
         self.validarSintaxisAsociativo(texto,textoCompleto)
         if self.tipo == "EOE":
@@ -194,6 +202,9 @@ class Operador:
             else:
                 raise ErrorSintaxis(textoCompleto,"Se encontro mas de una ocurrencia del simbolo que corresponde al operador '" + self.simbolo + "' al mismo nivel de prioridad y no es un operador que conmute, la expresión es ambigua.", self.name)
 
+    def explicar(self):
+        pass
+    
 class ExpresionTextual:
     "Esta clase involucra el proceso de transformar un texto en un operador o una proposicion"
 
@@ -209,8 +220,8 @@ class ExpresionTextual:
     def procesar(self):
         # Primero se procesa los parentesis salvo que ya venga una lista lo que por construccion implica que ya se buscaron parentesis antes y este paso se puede saltear.
         if type(self.elementos) == str:
-            self.contenido = Parentesis.buscarYreemplazar(self.contenido)
-        if len (self.contenido) == 1: # O es un texto o es un parentesis, en caso de que haya un parentesis y texto alrededor habria mas de un elemento generados en el paso anterior o cuando sea que se haya buscado parentesis.
+            self.elementos = Parentesis.buscarYreemplazar(self.elementos)
+        if len (self.elementos) == 1: # O es un texto o es un parentesis, en caso de que haya un parentesis y texto alrededor habria mas de un elemento generados en el paso anterior o cuando sea que se haya buscado parentesis.
             if not type(self.elementos[0]) == str:
                 operador = self.elementos[0]
                 operador.padre = self.padre
@@ -240,6 +251,24 @@ class ExpresionTextual:
         texto = texto.replace(" ","")
         return ExpresionTextual.ProcesarExpresionTextual(texto,None)
 
+    @classmethod
+    def ExpresionInicialconDebug(cls,texto):
+        try:
+            if "\\" in texto:
+                raise ErrorSintaxis(texto,"El caracter '\\' es un caracter reservado y no puede ser parte de la expresión",cls.name)
+            texto = Convenciones.reemplazarcaracteres(texto)
+            texto = texto.replace(" ","")
+            print (ExpresionTextual.ProcesarExpresionTextual(texto,None))
+        except ErrorLogico as error:
+            print ("Se detecto un error en la logica de procesamiento de datos, contacte al desarrollador. Se detalla el error a continucación.")
+            print (error.msg)
+            print ("El contexto del error fue el siguiente:")
+            print (error.contexto)
+            logger.exception(error)
+        except ErrorSintaxis as error:
+            print ("Se interrumpio el proceso porque se detecto un error de sintaxis.")
+            print (error.msg)
+    
 class Parentesis:
 
     """
@@ -372,18 +401,18 @@ class Mensajes:
 class ErrorSintaxis(Exception):
     "Clase que se encarga de manejar los errores de sintaxis"
     #TODO aca se podria vincular con la GUI.
-    def __init__(self,expresion,error,nombreTipoDeOperador):
+    def __init__(self,expresion,error,nombreTipoDeOperador,*args,**kwargs):
         self.msg = "En la expresión '"+ expresion +"' se encontro un error al buscar elementos del tipo " + nombreTipoDeOperador + " donde se reporto el siguiente mensaje: '" + error +"'"
-        super().__init__(self.msg)
+        super().__init__(self.msg,*args,**kwargs)
         #Mensajes.MensajeAlUsuario(self.msg)
 
 class ErrorLogico(Exception):
     "Clase que se encarga de manejar los errores de programacion. Idealmente no deberia usarse, pero como la logica del algoritmo es compleja previene y explica donde hay situaciones que no deberia suceder. Es una especie de assert."
     #TODO aca se podria vincular con la GUI.
-    def __init__(self,texto,contexto):
+    def __init__(self,texto,contexto,*args,**kwargs):
         self.msg = texto
         self.contexto = contexto
-        super().__init__(self.msg)
+        super().__init__(self.msg,*args,**kwargs)
         #Mensajes.MensajeAlUsuario(self.msg)
 
 def findOccurrences(substring, string):
@@ -418,7 +447,7 @@ def elementosToTextoSinParentesis(elementos):
 
 
 def tests(caso):
-
+    
     if caso == 1:
         # Probamos que este andando el raise
         elementos = ["hola","chau"] # No tiene que devolver error
@@ -434,34 +463,10 @@ def tests(caso):
         Convenciones.reemplazarcaracteres("")
     if caso == 4: # Probamos que funciones bien la funcion reemplazarcaracteres
         Convenciones.reemplazarcaracteres("[Hay que calor")
-    if caso == 5: # Probamos que valide bien los casos de error de sintaxis en el operador SiSoloSi
-        operador = Operador("SiSoloSi",None)
-        expresiones = [["hola<=>chau"],["<=>chau"],["hola<=>"],["Hola<=>a<=>chau"],["Hola<=><=>chau"]]
+    if caso == 5: # Probamos que valide bien los casos de error de sintaxis
+        expresiones = ["p<=>p","<=>p","p<=>","p<=>q<=>p","p<=><=>p","p=>p","=>p","p=>","p=>q=>p","p=>=>p","p=>q<=>p"]
         for expresion in expresiones:
-            try:
-                operador.aplicar(expresion)
-            except ErrorSintaxis as error:
-                print (error.msg)
-    if caso == 6: # Probamos que valide bien los casos de error de sintaxis en el operador Implica
-        operador = Operador("SiSoloSi",None)
-        expresiones = [["hola=>chau"],["=>chau"],["hola=>"],["Hola=>a=>chau"],["Hola=><=>chau"]]
-        for expresion in expresiones:
-            try:
-                operador.aplicar(expresion)
-            except ErrorSintaxis as error:
-                print (error.msg)
+            ExpresionTextual.ExpresionInicialconDebug(expresion)
 
-def principal(caso):
-    try:
-        tests(caso)
-    except ErrorLogico as error:
-        print ("Se detecto un error en la logica de procesamiento de datos, contacte al desarrollador. Se detalla el error a continucación.")
-        print (error.msg)
-        print ("El contexto del error fue el siguiente:")
-        print (error.contexto)
-    except ErrorSintaxis as error:
-        print ("Se interrumpio el proceso porque se detecto un error de sintaxis.")
-        print (error.msg)
+tests(5)
 
-
-principal(6)

@@ -1,9 +1,8 @@
 
 class EOE(Operador):
     
-@classmethod
-    def totext(cls,expresion):
-        return expresion.subexpresiones[0].totext() + cls.simbolo + expresion.subexpresiones[1].totext()
+def totext(cls,expresion):
+    return expresion.subexpresiones[0].totext() + cls.simbolo + expresion.subexpresiones[1].totext()
 
 class SiSoloSi (EOE):
 
